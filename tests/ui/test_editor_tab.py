@@ -72,23 +72,23 @@ def config_manager():
 class TestEditorTabStructure:
     """Test EditorTab basic structure."""
 
-    def test_editor_tab_has_list_view(self, config_manager):
+    def test_editor_tab_has_list_view(self, config_manager, mode_manager):
         """Tab has ListView widget."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
         assert hasattr(tab, "list_view")
         assert isinstance(tab.list_view, Gtk.ListView)
 
-    def test_editor_tab_has_list_store(self, config_manager):
+    def test_editor_tab_has_list_store(self, config_manager, mode_manager):
         """Tab has Gio.ListStore."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
         assert hasattr(tab, "list_store")
         # ListStore is in Gio module
         from gi.repository import Gio
         assert isinstance(tab.list_store, Gio.ListStore)
 
-    def test_editor_tab_has_selection_model(self, config_manager):
+    def test_editor_tab_has_selection_model(self, config_manager, mode_manager):
         """Tab has SingleSelection model."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
         assert hasattr(tab, "selection_model")
         assert isinstance(tab.selection_model, Gtk.SingleSelection)
 
@@ -96,9 +96,9 @@ class TestEditorTabStructure:
 class TestCategoryGrouping:
     """Test category header functionality."""
 
-    def test_editor_tab_has_category_headers(self, config_manager):
+    def test_editor_tab_has_category_headers(self, config_manager, mode_manager):
         """Tab displays category headers."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
 
         # Count headers
         headers = []
@@ -111,9 +111,9 @@ class TestCategoryGrouping:
         assert "Window Actions" in headers
         assert "Workspace Management" in headers
 
-    def test_bindings_appear_after_headers(self, config_manager):
+    def test_bindings_appear_after_headers(self, config_manager, mode_manager):
         """Bindings appear after their category headers."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
 
         # Find Window Actions header
         header_index = None
@@ -130,9 +130,9 @@ class TestCategoryGrouping:
         assert not next_item.is_header
         assert next_item.binding is not None
 
-    def test_correct_number_of_items(self, config_manager):
+    def test_correct_number_of_items(self, config_manager, mode_manager):
         """Total items = headers + bindings."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
 
         # Count expected items: 2 categories (headers) + 3 bindings
         expected_items = 2 + 3  # 2 headers + 3 bindings
@@ -144,9 +144,9 @@ class TestCategoryGrouping:
 class TestToolbar:
     """Test toolbar with CRUD buttons."""
 
-    def test_editor_tab_has_toolbar(self, config_manager):
+    def test_editor_tab_has_toolbar(self, config_manager, mode_manager):
         """Tab has toolbar widgets."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
 
         # Find toolbar - it should be the first child
         first_child = tab.get_first_child()
@@ -154,21 +154,21 @@ class TestToolbar:
         # Toolbar should be a Box or similar container
         assert isinstance(first_child, (Gtk.Box, Gtk.ActionBar))
 
-    def test_toolbar_has_add_button(self, config_manager):
+    def test_toolbar_has_add_button(self, config_manager, mode_manager):
         """Toolbar has Add button."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
         assert hasattr(tab, "add_button")
         assert isinstance(tab.add_button, Gtk.Button)
 
-    def test_toolbar_has_edit_button(self, config_manager):
+    def test_toolbar_has_edit_button(self, config_manager, mode_manager):
         """Toolbar has Edit button."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
         assert hasattr(tab, "edit_button")
         assert isinstance(tab.edit_button, Gtk.Button)
 
-    def test_toolbar_has_delete_button(self, config_manager):
+    def test_toolbar_has_delete_button(self, config_manager, mode_manager):
         """Toolbar has Delete button."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
         assert hasattr(tab, "delete_button")
         assert isinstance(tab.delete_button, Gtk.Button)
 
@@ -176,23 +176,23 @@ class TestToolbar:
 class TestObserverPattern:
     """Test observer registration and reload."""
 
-    def test_editor_tab_registers_as_observer(self, config_manager):
+    def test_editor_tab_registers_as_observer(self, config_manager, mode_manager):
         """Tab registers itself with config manager."""
         initial_observer_count = len(config_manager._observers)
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
 
         # Should have one more observer
         assert len(config_manager._observers) == initial_observer_count + 1
 
-    def test_reload_bindings_method_exists(self, config_manager):
+    def test_reload_bindings_method_exists(self, config_manager, mode_manager):
         """Tab has reload_bindings method."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
         assert hasattr(tab, "reload_bindings")
         assert callable(tab.reload_bindings)
 
-    def test_reload_bindings_clears_and_reloads(self, config_manager):
+    def test_reload_bindings_clears_and_reloads(self, config_manager, mode_manager):
         """reload_bindings clears and reloads from config."""
-        tab = EditorTab(config_manager)
+        tab = EditorTab(config_manager, mode_manager)
 
         initial_count = tab.list_store.get_n_items()
         assert initial_count > 0

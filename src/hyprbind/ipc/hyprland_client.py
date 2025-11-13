@@ -106,7 +106,7 @@ class HyprlandClient:
 
         Raises:
             HyprlandNotRunningError: If not connected.
-            HyprlandConnectionError: If command fails.
+            HyprlandConnectionError: If command fails or times out.
         """
         if self.socket_path is None:
             raise HyprlandNotRunningError(
@@ -116,6 +116,7 @@ class HyprlandClient:
         # Create a new socket for each command
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
+            sock.settimeout(5.0)  # 5 second timeout
             sock.connect(str(self.socket_path))
             sock.sendall(command.encode())
 
@@ -131,6 +132,8 @@ class HyprlandClient:
             except json.JSONDecodeError as e:
                 raise HyprlandConnectionError(f"Invalid response from Hyprland: {e}")
 
+        except socket.timeout:
+            raise HyprlandConnectionError("Connection timed out")
         except OSError as e:
             raise HyprlandConnectionError(f"Command failed: {e}")
         finally:

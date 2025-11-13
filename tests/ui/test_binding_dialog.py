@@ -45,26 +45,37 @@ def sample_binding():
     )
 
 
-def test_dialog_creation_add_mode(config_manager):
+def test_dialog_creation_add_mode(config_manager, mode_manager):
     """Test dialog creation in add mode (no binding)."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     assert dialog.original_binding is None
     assert isinstance(dialog, Adw.Window)
     assert dialog.config_manager is config_manager
 
 
-def test_dialog_creation_edit_mode(config_manager, sample_binding):
+def test_dialog_creation_edit_mode(config_manager, mode_manager, sample_binding):
     """Test dialog creation in edit mode (with binding)."""
-    dialog = BindingDialog(config_manager=config_manager, binding=sample_binding)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager,
+        binding=sample_binding
+    )
 
     assert dialog.original_binding == sample_binding
     assert isinstance(dialog, Adw.Window)
 
 
-def test_form_fields_populated_in_edit_mode(config_manager, sample_binding):
+def test_form_fields_populated_in_edit_mode(config_manager, mode_manager, sample_binding):
     """Test that form fields are populated when editing a binding."""
-    dialog = BindingDialog(config_manager=config_manager, binding=sample_binding)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager,
+        binding=sample_binding
+    )
 
     # Check bind type (0 = bindd)
     assert dialog.type_row.get_selected() == 0
@@ -85,9 +96,12 @@ def test_form_fields_populated_in_edit_mode(config_manager, sample_binding):
     assert dialog.params_entry.get_text() == ""
 
 
-def test_validation_empty_key(config_manager):
+def test_validation_empty_key(config_manager, mode_manager):
     """Test validation fails for empty key."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     dialog.key_entry.set_text("")
     dialog.action_entry.set_text("exec")
@@ -97,9 +111,12 @@ def test_validation_empty_key(config_manager):
     assert "Key cannot be empty" in error
 
 
-def test_validation_empty_action(config_manager):
+def test_validation_empty_action(config_manager, mode_manager):
     """Test validation fails for empty action."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     dialog.key_entry.set_text("Q")
     dialog.action_entry.set_text("")
@@ -109,9 +126,12 @@ def test_validation_empty_action(config_manager):
     assert "Action cannot be empty" in error
 
 
-def test_validation_invalid_modifiers(config_manager):
+def test_validation_invalid_modifiers(config_manager, mode_manager):
     """Test validation fails for invalid modifiers."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     dialog.key_entry.set_text("Q")
     dialog.action_entry.set_text("exec")
@@ -122,9 +142,12 @@ def test_validation_invalid_modifiers(config_manager):
     assert "Invalid modifier" in error
 
 
-def test_validation_valid_input(config_manager):
+def test_validation_valid_input(config_manager, mode_manager):
     """Test validation passes for valid input."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     dialog.key_entry.set_text("Q")
     dialog.action_entry.set_text("exec")
@@ -134,9 +157,12 @@ def test_validation_valid_input(config_manager):
     assert error is None
 
 
-def test_get_binding_new_binding(config_manager):
+def test_get_binding_new_binding(config_manager, mode_manager):
     """Test get_binding() creates new binding correctly."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     dialog.type_row.set_selected(1)  # bind (not bindd)
     dialog.key_entry.set_text("Q")
@@ -157,9 +183,13 @@ def test_get_binding_new_binding(config_manager):
     assert binding.line_number >= 0
 
 
-def test_get_binding_preserves_metadata(config_manager, sample_binding):
+def test_get_binding_preserves_metadata(config_manager, mode_manager, sample_binding):
     """Test get_binding() preserves line_number and submap when editing."""
-    dialog = BindingDialog(config_manager=config_manager, binding=sample_binding)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager,
+        binding=sample_binding
+    )
 
     # Change some fields
     dialog.key_entry.set_text("W")
@@ -172,9 +202,12 @@ def test_get_binding_preserves_metadata(config_manager, sample_binding):
     assert binding.submap is None
 
 
-def test_category_selector_shows_existing_categories(config_manager):
+def test_category_selector_shows_existing_categories(config_manager, mode_manager):
     """Test category selector shows existing categories plus Custom."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     model = dialog.category_row.get_model()
     categories = [model.get_string(i) for i in range(model.get_n_items())]
@@ -184,9 +217,12 @@ def test_category_selector_shows_existing_categories(config_manager):
     assert "Custom" in categories
 
 
-def test_category_selector_defaults_to_custom(config_manager):
+def test_category_selector_defaults_to_custom(config_manager, mode_manager):
     """Test category selector defaults to Custom for new bindings."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     model = dialog.category_row.get_model()
     selected_category = model.get_string(dialog.category_row.get_selected())
@@ -194,9 +230,13 @@ def test_category_selector_defaults_to_custom(config_manager):
     assert selected_category == "Custom"
 
 
-def test_category_selector_set_for_existing_binding(config_manager, sample_binding):
+def test_category_selector_set_for_existing_binding(config_manager, mode_manager, sample_binding):
     """Test category selector is set correctly for existing binding."""
-    dialog = BindingDialog(config_manager=config_manager, binding=sample_binding)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager,
+        binding=sample_binding
+    )
 
     model = dialog.category_row.get_model()
     selected_category = model.get_string(dialog.category_row.get_selected())
@@ -204,9 +244,12 @@ def test_category_selector_set_for_existing_binding(config_manager, sample_bindi
     assert selected_category == "Window Management"
 
 
-def test_bind_type_selector(config_manager):
+def test_bind_type_selector(config_manager, mode_manager):
     """Test bind type selector shows all types."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     model = dialog.type_row.get_model()
     types = [model.get_string(i) for i in range(model.get_n_items())]
@@ -218,12 +261,15 @@ def test_bind_type_selector(config_manager):
     assert "bindm (mouse)" in types
 
 
-def test_successful_save_operation_new_binding(config_manager):
+def test_successful_save_operation_new_binding(config_manager, mode_manager):
     """Test successful save operation for new binding."""
     # Mock add_binding to return success
     config_manager.add_binding = MagicMock(return_value=OperationResult(success=True))
 
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
     dialog.key_entry.set_text("Q")
     dialog.action_entry.set_text("exec")
 
@@ -240,12 +286,16 @@ def test_successful_save_operation_new_binding(config_manager):
     assert dialog.close.called
 
 
-def test_successful_save_operation_edit_binding(config_manager, sample_binding):
+def test_successful_save_operation_edit_binding(config_manager, mode_manager, sample_binding):
     """Test successful save operation when editing."""
     # Mock update_binding to return success
     config_manager.update_binding = MagicMock(return_value=OperationResult(success=True))
 
-    dialog = BindingDialog(config_manager=config_manager, binding=sample_binding)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager,
+        binding=sample_binding
+    )
     dialog.key_entry.set_text("W")
 
     # Mock close to verify it's called
@@ -261,7 +311,7 @@ def test_successful_save_operation_edit_binding(config_manager, sample_binding):
     assert dialog.close.called
 
 
-def test_conflict_detection(config_manager):
+def test_conflict_detection(config_manager, mode_manager):
     """Test conflict detection shows error with conflicting bindings."""
     conflicting_binding = Binding(
         type=BindType.BINDD,
@@ -284,7 +334,10 @@ def test_conflict_detection(config_manager):
         )
     )
 
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
     dialog.key_entry.set_text("Q")
     dialog.action_entry.set_text("exec")
     dialog.modifiers_entry.set_text("$mainMod")
@@ -311,9 +364,12 @@ def test_conflict_detection(config_manager):
     assert not dialog.close.called
 
 
-def test_validation_error_keeps_dialog_open(config_manager):
+def test_validation_error_keeps_dialog_open(config_manager, mode_manager):
     """Test that validation errors keep dialog open for correction."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     # Set invalid input (empty key)
     dialog.key_entry.set_text("")
@@ -341,9 +397,12 @@ def test_validation_error_keeps_dialog_open(config_manager):
     assert not config_manager.add_binding.called
 
 
-def test_cancel_button_closes_dialog(config_manager):
+def test_cancel_button_closes_dialog(config_manager, mode_manager):
     """Test that cancel button closes dialog without saving."""
-    dialog = BindingDialog(config_manager=config_manager)
+    dialog = BindingDialog(
+        config_manager=config_manager,
+        mode_manager=mode_manager
+    )
 
     # Set some input
     dialog.key_entry.set_text("Q")

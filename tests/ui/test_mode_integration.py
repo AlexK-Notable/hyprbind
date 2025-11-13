@@ -190,6 +190,8 @@ class TestLiveModeWorkflow:
             description="Test binding",
             action="exec",
             params="alacritty",
+            submap=None,
+            line_number=0,
             category="Test",
         )
 
@@ -218,6 +220,8 @@ class TestLiveModeWorkflow:
             description="Test binding",
             action="exec",
             params="alacritty",
+            submap=None,
+            line_number=0,
             category="Test",
         )
 
