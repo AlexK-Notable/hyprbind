@@ -288,8 +288,8 @@ def test_successful_save_operation_new_binding(config_manager, mode_manager):
 
 def test_successful_save_operation_edit_binding(config_manager, mode_manager, sample_binding):
     """Test successful save operation when editing."""
-    # Mock update_binding to return success
-    config_manager.update_binding = MagicMock(return_value=OperationResult(success=True))
+    # Mock mode_manager.apply_binding to return success (edit uses remove + add)
+    mode_manager.apply_binding = MagicMock(return_value=OperationResult(success=True))
 
     dialog = BindingDialog(
         config_manager=config_manager,
@@ -304,8 +304,8 @@ def test_successful_save_operation_edit_binding(config_manager, mode_manager, sa
     # Simulate save button click
     dialog._on_save_clicked(None)
 
-    # Verify update_binding was called
-    assert config_manager.update_binding.called
+    # Verify mode_manager.apply_binding was called twice (remove old, add new)
+    assert mode_manager.apply_binding.call_count == 2
     assert config_manager.save.called
     # Verify dialog closed on success
     assert dialog.close.called
