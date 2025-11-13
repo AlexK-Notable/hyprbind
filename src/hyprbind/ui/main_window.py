@@ -100,11 +100,11 @@ class MainWindow(Adw.ApplicationWindow):
         editor_page.set_title("Editor")
         self.editor_tab = editor_label  # Store reference
 
-        # Conflicts tab
-        conflicts_label = Gtk.Label(label="Conflicts Tab - Coming Soon")
-        conflicts_page = self.tab_view.append(conflicts_label)
-        conflicts_page.set_title("Conflicts")
-        self.conflicts_tab = conflicts_label  # Store reference
+        # Community tab
+        community_label = Gtk.Label(label="Community Tab - Coming Soon")
+        community_page = self.tab_view.append(community_label)
+        community_page.set_title("Community")
+        self.community_tab = community_label  # Store reference
 
         # Cheatsheet tab
         cheatsheet_label = Gtk.Label(label="Cheatsheet Tab - Coming Soon")

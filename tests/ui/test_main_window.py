@@ -45,7 +45,7 @@ class TestWindowStructure:
     def test_tabs_stored_as_attributes(self, main_window):
         """Tabs are accessible as direct attributes."""
         assert hasattr(main_window, "editor_tab")
-        assert hasattr(main_window, "conflicts_tab")
+        assert hasattr(main_window, "community_tab")
         assert hasattr(main_window, "cheatsheet_tab")
         assert hasattr(main_window, "reference_tab")
 
