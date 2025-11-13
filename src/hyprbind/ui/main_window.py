@@ -88,6 +88,9 @@ class MainWindow(Adw.ApplicationWindow):
         from hyprbind.core.mode_manager import ModeManager
         self.mode_manager = ModeManager(self.config_manager)
 
+        # Setup dynamic theming
+        self._setup_theming()
+
         # Setup Chezmoi banner
         self._setup_chezmoi_banner()
 
@@ -102,6 +105,30 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Load config asynchronously
         self._load_config_async()
+
+    def _setup_theming(self) -> None:
+        """Setup dynamic theming with Wallust colors if available."""
+        from hyprbind.theming import WallustLoader, ThemeManager
+
+        # Initialize theme manager
+        self.theme_manager = ThemeManager()
+
+        # Check if Wallust is installed
+        if not WallustLoader.is_installed():
+            print("Wallust not installed, using default theme")
+            return
+
+        # Try to load colors
+        palette = WallustLoader.load_colors()
+        if palette:
+            # Apply Wallust colors
+            success = self.theme_manager.apply_theme(palette)
+            if success:
+                print("Applied Wallust dynamic colors")
+            else:
+                print("Failed to apply Wallust colors, using default theme")
+        else:
+            print("No Wallust colors found, using default theme")
 
     def _setup_chezmoi_banner(self) -> None:
         """Setup the Chezmoi banner and connect its signals."""
