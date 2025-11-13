@@ -6,9 +6,11 @@ gi.require_version("Gtk", "4.0")
 
 from gi.repository import Gtk, Gio, GObject
 from typing import Optional
+from pathlib import Path
 
 from hyprbind.core.config_manager import ConfigManager
 from hyprbind.core.models import Binding
+from hyprbind.export.exporter import Exporter
 
 
 class BindingCardObject(GObject.Object):
@@ -175,15 +177,127 @@ class CheatsheetTab(Gtk.Box):
 
     def _on_export_pdf(self, button: Gtk.Button) -> None:
         """Handle PDF export."""
-        # Placeholder - will implement in Phase 6
-        print("PDF export - coming in Phase 6")
+        self._show_export_dialog("pdf", "PDF Files", "*.pdf")
 
     def _on_export_html(self, button: Gtk.Button) -> None:
         """Handle HTML export."""
-        # Placeholder - will implement in Phase 6
-        print("HTML export - coming in Phase 6")
+        self._show_export_dialog("html", "HTML Files", "*.html")
 
     def _on_export_markdown(self, button: Gtk.Button) -> None:
         """Handle Markdown export."""
-        # Placeholder - will implement in Phase 6
-        print("Markdown export - coming in Phase 6")
+        self._show_export_dialog("markdown", "Markdown Files", "*.md")
+
+    def _show_export_dialog(self, format_type: str, filter_name: str, pattern: str) -> None:
+        """
+        Show file save dialog and export keybindings.
+
+        Args:
+            format_type: Export format ('pdf', 'html', or 'markdown')
+            filter_name: Name for file filter
+            pattern: File pattern for filter
+        """
+        if not self.config_manager.config:
+            self._show_error_dialog("No configuration loaded", "Please load a configuration first.")
+            return
+
+        # Create file dialog
+        dialog = Gtk.FileDialog()
+        dialog.set_title(f"Export as {format_type.upper()}")
+
+        # Set default filename
+        default_name = f"hyprland-keybindings.{pattern.replace('*.', '')}"
+        dialog.set_initial_name(default_name)
+
+        # Create file filter
+        file_filter = Gtk.FileFilter()
+        file_filter.set_name(filter_name)
+        file_filter.add_pattern(pattern)
+
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(file_filter)
+        dialog.set_filters(filters)
+
+        # Show dialog
+        dialog.save(
+            parent=self.get_root(),
+            callback=lambda d, result: self._on_export_dialog_response(
+                d, result, format_type
+            ),
+        )
+
+    def _on_export_dialog_response(
+        self, dialog: Gtk.FileDialog, result: Gio.AsyncResult, format_type: str
+    ) -> None:
+        """
+        Handle file dialog response.
+
+        Args:
+            dialog: File dialog
+            result: Async result
+            format_type: Export format type
+        """
+        try:
+            file = dialog.save_finish(result)
+            if file:
+                output_path = Path(file.get_path())
+                self._export_to_file(output_path, format_type)
+        except Exception as e:
+            # User cancelled or error occurred
+            if "dismissed" not in str(e).lower():
+                self._show_error_dialog("Export failed", str(e))
+
+    def _export_to_file(self, output_path: Path, format_type: str) -> None:
+        """
+        Export keybindings to file.
+
+        Args:
+            output_path: Path where to save the file
+            format_type: Export format ('pdf', 'html', or 'markdown')
+        """
+        try:
+            exporter = Exporter(self.config_manager.config)
+
+            if format_type == "pdf":
+                exporter.export_pdf(output_path)
+            elif format_type == "html":
+                exporter.export_html(output_path)
+            elif format_type == "markdown":
+                exporter.export_markdown(output_path)
+
+            self._show_success_dialog(
+                "Export successful",
+                f"Keybindings exported to:\n{output_path}"
+            )
+        except ImportError as e:
+            self._show_error_dialog(
+                "Export failed",
+                f"Missing dependency: {e}\n\nFor PDF export, install weasyprint:\npip install weasyprint"
+            )
+        except Exception as e:
+            self._show_error_dialog("Export failed", str(e))
+
+    def _show_error_dialog(self, title: str, message: str) -> None:
+        """
+        Show error dialog.
+
+        Args:
+            title: Dialog title
+            message: Error message
+        """
+        dialog = Gtk.AlertDialog()
+        dialog.set_message(title)
+        dialog.set_detail(message)
+        dialog.show(parent=self.get_root())
+
+    def _show_success_dialog(self, title: str, message: str) -> None:
+        """
+        Show success dialog.
+
+        Args:
+            title: Dialog title
+            message: Success message
+        """
+        dialog = Gtk.AlertDialog()
+        dialog.set_message(title)
+        dialog.set_detail(message)
+        dialog.show(parent=self.get_root())
