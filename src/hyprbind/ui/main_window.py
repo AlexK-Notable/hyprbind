@@ -91,14 +91,14 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _setup_tabs(self) -> None:
         """Create tab structure with placeholders."""
-        # Create placeholder pages for each tab
-        # These will be replaced with actual tab implementations in later tasks
+        # Import EditorTab
+        from hyprbind.ui.editor_tab import EditorTab
 
-        # Editor tab
-        editor_label = Gtk.Label(label="Editor Tab - Coming Soon")
-        editor_page = self.tab_view.append(editor_label)
+        # Editor tab (fully implemented)
+        editor_tab = EditorTab(self.config_manager)
+        editor_page = self.tab_view.append(editor_tab)
         editor_page.set_title("Editor")
-        self.editor_tab = editor_label  # Store reference
+        self.editor_tab = editor_tab  # Store reference
 
         # Community tab
         community_label = Gtk.Label(label="Community Tab - Coming Soon")
