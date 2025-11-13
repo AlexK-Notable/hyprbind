@@ -5,11 +5,12 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Gtk, Gio, GObject
+from gi.repository import Gtk, Gio, GObject, Adw
 from typing import Optional
 
 from hyprbind.core.config_manager import ConfigManager
 from hyprbind.core.models import Binding
+from hyprbind.ui.binding_dialog import BindingDialog
 
 
 class BindingWithSection(GObject.Object):
@@ -252,28 +253,73 @@ class EditorTab(Gtk.Box):
                 self.list_store.append(BindingWithSection(binding=binding))
 
     def _on_add_clicked(self, button: Gtk.Button) -> None:
-        """Handle Add button click (placeholder for Task 11).
+        """Handle Add button click - show dialog for new binding.
 
         Args:
             button: The button that was clicked
         """
-        # TODO: Task 11 will implement Add dialog
-        print("Add button clicked - dialog coming in Task 11")
+        dialog = BindingDialog(
+            config_manager=self.config_manager, parent=self.get_root()
+        )
+        dialog.present()
 
     def _on_edit_clicked(self, button: Gtk.Button) -> None:
-        """Handle Edit button click (placeholder for Task 11).
+        """Handle Edit button click - show dialog for selected binding.
 
         Args:
             button: The button that was clicked
         """
-        # TODO: Task 11 will implement Edit dialog
-        print("Edit button clicked - dialog coming in Task 11")
+        position = self.selection_model.get_selected()
+        if position == Gtk.INVALID_LIST_POSITION:
+            return
+
+        item = self.selection_model.get_selected_item()
+        if item.is_header:
+            return  # Can't edit header
+
+        binding = item.binding
+
+        dialog = BindingDialog(
+            config_manager=self.config_manager, binding=binding, parent=self.get_root()
+        )
+        dialog.present()
 
     def _on_delete_clicked(self, button: Gtk.Button) -> None:
-        """Handle Delete button click (placeholder for Task 11).
+        """Handle Delete button click - show confirmation dialog.
 
         Args:
             button: The button that was clicked
         """
-        # TODO: Task 11 will implement Delete confirmation
-        print("Delete button clicked - confirmation coming in Task 11")
+        position = self.selection_model.get_selected()
+        if position == Gtk.INVALID_LIST_POSITION:
+            return
+
+        item = self.selection_model.get_selected_item()
+        if item.is_header:
+            return
+
+        binding = item.binding
+
+        dialog = Adw.MessageDialog.new(self.get_root())
+        dialog.set_heading("Delete Binding?")
+        dialog.set_body(f"Delete: {binding.description}?")
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("delete", "Delete")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.connect("response", self._on_delete_response, binding)
+        dialog.present()
+
+    def _on_delete_response(
+        self, dialog: Adw.MessageDialog, response: str, binding: Binding
+    ) -> None:
+        """Handle delete confirmation dialog response.
+
+        Args:
+            dialog: The dialog emitting the response
+            response: Response ID ("delete" or "cancel")
+            binding: Binding to delete
+        """
+        if response == "delete":
+            result = self.config_manager.remove_binding(binding)
+            if result.success:
+                self.config_manager.save()
