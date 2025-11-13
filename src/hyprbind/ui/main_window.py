@@ -91,8 +91,9 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _setup_tabs(self) -> None:
         """Create tab structure with placeholders."""
-        # Import EditorTab
+        # Import tabs
         from hyprbind.ui.editor_tab import EditorTab
+        from hyprbind.ui.cheatsheet_tab import CheatsheetTab
 
         # Editor tab (fully implemented)
         editor_tab = EditorTab(self.config_manager)
@@ -106,11 +107,11 @@ class MainWindow(Adw.ApplicationWindow):
         community_page.set_title("Community")
         self.community_tab = community_label  # Store reference
 
-        # Cheatsheet tab
-        cheatsheet_label = Gtk.Label(label="Cheatsheet Tab - Coming Soon")
-        cheatsheet_page = self.tab_view.append(cheatsheet_label)
+        # Cheatsheet tab (fully implemented)
+        cheatsheet_tab = CheatsheetTab(self.config_manager)
+        cheatsheet_page = self.tab_view.append(cheatsheet_tab)
         cheatsheet_page.set_title("Cheatsheet")
-        self.cheatsheet_tab = cheatsheet_label  # Store reference
+        self.cheatsheet_tab = cheatsheet_tab  # Store reference
 
         # Reference tab
         reference_label = Gtk.Label(label="Reference Tab - Coming Soon")
