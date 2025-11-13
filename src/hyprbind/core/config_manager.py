@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Callable
 
 from hyprbind.core.conflict_detector import ConflictDetector
+from hyprbind.core.config_writer import ConfigWriter
 from hyprbind.core.models import Binding, Config
 from hyprbind.parsers.config_parser import ConfigParser
 
@@ -185,3 +186,33 @@ class ConfigManager:
 
         # Success - dirty already set, observers already notified by add_binding
         return OperationResult(success=True, message="Binding updated")
+
+    def save(self, output_path: Optional[Path] = None) -> OperationResult:
+        """Save config to file.
+
+        Args:
+            output_path: Path to save to (defaults to config_path)
+
+        Returns:
+            OperationResult with success status
+        """
+        if not self.config:
+            return OperationResult(
+                success=False,
+                message="Config not loaded - nothing to save",
+            )
+
+        target_path = output_path or self.config_path
+
+        try:
+            ConfigWriter.write_file(self.config, target_path)
+            self._dirty = False
+            return OperationResult(
+                success=True,
+                message=f"Config saved to {target_path}",
+            )
+        except Exception as e:
+            return OperationResult(
+                success=False,
+                message=f"Failed to save config: {e}",
+            )
