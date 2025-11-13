@@ -17,6 +17,14 @@
         </child>
 
         <child>
+          <object class="AdwBanner" id="chezmoi_banner">
+            <property name="revealed">false</property>
+            <property name="title">This file is managed by Chezmoi</property>
+            <property name="button-label">Learn More</property>
+          </object>
+        </child>
+
+        <child>
           <object class="GtkOverlay" id="main_overlay">
             <child>
               <object class="AdwTabView" id="tab_view">

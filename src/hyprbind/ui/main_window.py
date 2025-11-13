@@ -68,6 +68,7 @@ class MainWindow(Adw.ApplicationWindow):
     # Template children with type annotations
     main_content: Gtk.Box = Gtk.Template.Child()
     header_bar: Adw.HeaderBar = Gtk.Template.Child()
+    chezmoi_banner: Adw.Banner = Gtk.Template.Child()
     tab_view: Adw.TabView = Gtk.Template.Child()
     loading_box: Gtk.Box = Gtk.Template.Child()
     loading_spinner: Gtk.Spinner = Gtk.Template.Child()
@@ -80,6 +81,9 @@ class MainWindow(Adw.ApplicationWindow):
         from hyprbind.core.config_manager import ConfigManager
         self.config_manager = ConfigManager()
 
+        # Setup Chezmoi banner
+        self._setup_chezmoi_banner()
+
         # Setup tabs
         self._setup_tabs()
 
@@ -88,6 +92,56 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Load config asynchronously
         self._load_config_async()
+
+    def _setup_chezmoi_banner(self) -> None:
+        """Setup the Chezmoi banner and connect its signals."""
+        self.chezmoi_banner.connect("button-clicked", self._on_chezmoi_learn_more)
+
+    def _check_chezmoi_management(self) -> None:
+        """Check if the config file is managed by Chezmoi and show banner if it is."""
+        from hyprbind.integrations.chezmoi import ChezmoiIntegration
+
+        config_path = self.config_manager.config_path
+        if config_path and ChezmoiIntegration.is_managed(config_path):
+            source_path = ChezmoiIntegration.get_source_path(config_path)
+            if source_path:
+                # Update banner message with source path
+                self.chezmoi_banner.set_title(
+                    f"This file is managed by Chezmoi. "
+                    f"Source: {source_path.name}"
+                )
+                self.chezmoi_banner.set_revealed(True)
+
+    def _on_chezmoi_learn_more(self, banner: Adw.Banner) -> None:
+        """Show dialog with Chezmoi workflow information."""
+        from hyprbind.integrations.chezmoi import ChezmoiIntegration
+
+        config_path = self.config_manager.config_path
+        if not config_path:
+            return
+
+        source_path = ChezmoiIntegration.get_source_path(config_path)
+
+        dialog = Adw.MessageDialog.new(self)
+        dialog.set_heading("Chezmoi Integration")
+
+        body_text = (
+            "This configuration file is managed by Chezmoi.\n\n"
+            "Recommended workflow:\n"
+            "1. Edit the source file in Chezmoi:\n"
+            f"   chezmoi edit {config_path}\n\n"
+            "2. Apply changes:\n"
+            "   chezmoi apply\n\n"
+            "Or edit directly in HyprBind, but remember to run:\n"
+            "   chezmoi re-add {config_path}"
+        )
+
+        if source_path:
+            body_text += f"\n\nSource file location:\n{source_path}"
+
+        dialog.set_body(body_text)
+        dialog.add_response("ok", "OK")
+        dialog.present()
 
     def _setup_tabs(self) -> None:
         """Create tab structure with placeholders."""
@@ -147,6 +201,8 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_config_loaded(self) -> None:
         """Called on main thread after config loads successfully."""
         self._hide_loading()
+        # Check if config is managed by Chezmoi
+        self._check_chezmoi_management()
         # Tabs will be notified via observer pattern
         # For now, they're just placeholders
         return False  # Don't call again
