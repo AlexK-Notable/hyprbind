@@ -29,3 +29,6 @@ dist/
 # Project specific
 *.bak
 .DS_Store
+
+# Git worktrees
+worktrees/
