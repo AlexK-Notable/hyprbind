@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Callable
 
+from hyprbind.core.backup_manager import BackupManager, BackupInfo
 from hyprbind.core.conflict_detector import ConflictDetector
 from hyprbind.core.config_writer import ConfigWriter
 from hyprbind.core.models import Binding, Config
@@ -36,6 +37,7 @@ class ConfigManager:
         self.config: Optional[Config] = None
         self._observers: List[Callable[[], None]] = []
         self._dirty = False
+        self.backup_manager = BackupManager()
 
     def add_observer(self, callback: Callable[[], None]) -> None:
         """
@@ -188,7 +190,7 @@ class ConfigManager:
         return OperationResult(success=True, message="Binding updated")
 
     def save(self, output_path: Optional[Path] = None) -> OperationResult:
-        """Save config to file.
+        """Save config to file with automatic backup.
 
         Args:
             output_path: Path to save to (defaults to config_path)
@@ -205,6 +207,12 @@ class ConfigManager:
         target_path = output_path or self.config_path
 
         try:
+            # Create timestamped backup before writing
+            if target_path.exists():
+                self.backup_manager.create_backup(target_path)
+                # Also cleanup old backups, keeping last 5
+                self.backup_manager.cleanup_old_backups(target_path, keep=5)
+
             ConfigWriter.write_file(self.config, target_path)
             self._dirty = False
             return OperationResult(
@@ -215,4 +223,40 @@ class ConfigManager:
             return OperationResult(
                 success=False,
                 message=f"Failed to save config: {e}",
+            )
+
+    def list_backups(self) -> List[BackupInfo]:
+        """
+        List all available backups for the current config file.
+
+        Returns:
+            List of BackupInfo objects, sorted newest first
+        """
+        return self.backup_manager.list_backups(self.config_path)
+
+    def restore_from_backup(self, backup_info: BackupInfo) -> OperationResult:
+        """
+        Restore configuration from a backup.
+
+        Args:
+            backup_info: BackupInfo object for the backup to restore
+
+        Returns:
+            OperationResult with success status
+        """
+        try:
+            # Restore the backup
+            self.backup_manager.restore_backup(backup_info.path, self.config_path)
+
+            # Reload the config
+            self.load()
+
+            return OperationResult(
+                success=True,
+                message=f"Config restored from backup: {backup_info.timestamp}",
+            )
+        except Exception as e:
+            return OperationResult(
+                success=False,
+                message=f"Failed to restore backup: {e}",
             )
