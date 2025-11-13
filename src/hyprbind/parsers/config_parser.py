@@ -6,6 +6,7 @@ from typing import Optional
 
 from hyprbind.core.models import Config, Category
 from hyprbind.parsers.binding_parser import BindingParser
+from hyprbind.parsers.variable_resolver import VariableResolver
 
 
 class ConfigParser:
@@ -30,6 +31,10 @@ class ConfigParser:
         with open(file_path, "r") as f:
             content = f.read()
             config.original_content = content
+
+        # Load variables from config directory
+        config_dir = file_path.parent
+        config.variables = VariableResolver.load_all_variables(config_dir)
 
         lines = content.split("\n")
         current_category = "Uncategorized"

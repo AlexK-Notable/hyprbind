@@ -56,3 +56,26 @@ def test_parse_empty_file():
     config = ConfigParser.parse_string("")
 
     assert len(config.get_all_bindings()) == 0
+
+
+def test_parse_nonexistent_file():
+    """Test handling of non-existent config file."""
+    non_existent = Path("/tmp/nonexistent_hyprbind_test_12345.conf")
+
+    config = ConfigParser.parse_file(non_existent)
+
+    assert len(config.get_all_bindings()) == 0
+    assert config.file_path == str(non_existent)
+    assert config.original_content == ""
+
+
+def test_parse_file_loads_variables():
+    """Test that variables are loaded from config directory."""
+    fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_keybinds.conf"
+
+    config = ConfigParser.parse_file(fixture_path)
+
+    # Variables should be loaded from variables.conf and defaults.conf in fixtures dir
+    assert isinstance(config.variables, dict)
+    # The fixture directory should have some variables defined
+    assert len(config.variables) > 0

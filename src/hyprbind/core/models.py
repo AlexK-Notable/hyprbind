@@ -50,10 +50,15 @@ class Binding:
         return self.key
 
     def conflicts_with(self, other: "Binding") -> bool:
-        """Check if this binding conflicts with another."""
-        # Same modifiers and key = conflict
+        """
+        Check if this binding conflicts with another.
+
+        Note: Modifier order is normalized, so 'SHIFT + SUPER' and 'SUPER + SHIFT'
+        are treated as the same combination.
+        """
+        # Sort modifiers to handle different orderings (SHIFT+SUPER == SUPER+SHIFT)
         return (
-            self.modifiers == other.modifiers
+            sorted(self.modifiers) == sorted(other.modifiers)
             and self.key == other.key
             and self.submap == other.submap
         )
