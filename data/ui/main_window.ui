@@ -17,10 +17,36 @@
         </child>
 
         <child>
-          <object class="GtkLabel" id="placeholder_label">
-            <property name="label">HyprBind - Ready!</property>
-            <property name="margin-top">50</property>
-            <property name="margin-bottom">50</property>
+          <object class="GtkOverlay" id="main_overlay">
+            <child>
+              <object class="AdwTabView" id="tab_view">
+                <property name="vexpand">true</property>
+              </object>
+            </child>
+
+            <child type="overlay">
+              <object class="GtkBox" id="loading_box">
+                <property name="orientation">vertical</property>
+                <property name="valign">center</property>
+                <property name="halign">center</property>
+                <property name="spacing">12</property>
+                <property name="visible">false</property>
+
+                <child>
+                  <object class="GtkSpinner" id="loading_spinner">
+                    <property name="spinning">true</property>
+                    <property name="width-request">48</property>
+                    <property name="height-request">48</property>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkLabel" id="loading_label">
+                    <property name="label">Loading configuration...</property>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
         </child>
       </object>

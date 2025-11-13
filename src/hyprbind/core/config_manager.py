@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 from hyprbind.core.conflict_detector import ConflictDetector
 from hyprbind.core.models import Binding, Config
@@ -33,6 +33,46 @@ class ConfigManager:
 
         self.config_path = config_path
         self.config: Optional[Config] = None
+        self._observers: List[Callable[[], None]] = []
+        self._dirty = False
+
+    def add_observer(self, callback: Callable[[], None]) -> None:
+        """
+        Register observer to be notified of config changes.
+
+        Args:
+            callback: Function to call when config changes
+        """
+        if callback not in self._observers:
+            self._observers.append(callback)
+
+    def remove_observer(self, callback: Callable[[], None]) -> None:
+        """
+        Unregister observer.
+
+        Args:
+            callback: Function to remove from observers
+        """
+        if callback in self._observers:
+            self._observers.remove(callback)
+
+    def _notify_observers(self) -> None:
+        """Notify all observers of config change."""
+        for observer in self._observers:
+            try:
+                observer()
+            except Exception as e:
+                # Log error but don't break other observers
+                print(f"Observer error: {e}")
+
+    def is_dirty(self) -> bool:
+        """
+        Check if config has unsaved changes.
+
+        Returns:
+            True if config has been modified since last load/save
+        """
+        return self._dirty
 
     def load(self) -> Config:
         """
@@ -42,6 +82,8 @@ class ConfigManager:
             Loaded Config object
         """
         self.config = ConfigParser.parse_file(self.config_path)
+        self._dirty = False
+        self._notify_observers()
         return self.config
 
     def add_binding(self, binding: Binding) -> OperationResult:
@@ -71,6 +113,8 @@ class ConfigManager:
 
         # No conflicts, add binding
         self.config.add_binding(binding)
+        self._dirty = True
+        self._notify_observers()
         return OperationResult(success=True)
 
     def remove_binding(self, binding: Binding) -> OperationResult:
@@ -92,6 +136,8 @@ class ConfigManager:
         for category in self.config.categories.values():
             if binding in category.bindings:
                 category.bindings.remove(binding)
+                self._dirty = True
+                self._notify_observers()
                 return OperationResult(success=True, message="Binding removed")
 
         return OperationResult(success=False, message="Binding not found")
@@ -114,20 +160,28 @@ class ConfigManager:
                 success=False, message="Config not loaded. Call load() first."
             )
 
-        # Remove old binding
+        # Save original dirty state in case we need to rollback
+        was_dirty = self._dirty
+
+        # Remove old binding (this sets dirty and notifies)
         remove_result = self.remove_binding(old_binding)
         if not remove_result.success:
             return remove_result
 
-        # Try to add new binding
+        # Try to add new binding (this sets dirty and notifies)
         add_result = self.add_binding(new_binding)
         if not add_result.success:
             # Rollback: re-add old binding
             self.config.add_binding(old_binding)
+            # Restore original dirty state
+            self._dirty = was_dirty
+            # Notify observers of rollback
+            self._notify_observers()
             return OperationResult(
                 success=False,
                 message=f"Update failed: {add_result.message}. Changes rolled back.",
                 conflicts=add_result.conflicts,
             )
 
+        # Success - dirty already set, observers already notified by add_binding
         return OperationResult(success=True, message="Binding updated")
