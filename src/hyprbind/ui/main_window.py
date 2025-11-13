@@ -94,6 +94,8 @@ class MainWindow(Adw.ApplicationWindow):
         # Import tabs
         from hyprbind.ui.editor_tab import EditorTab
         from hyprbind.ui.cheatsheet_tab import CheatsheetTab
+        from hyprbind.ui.community_tab import CommunityTab
+        from hyprbind.ui.reference_tab import ReferenceTab
 
         # Editor tab (fully implemented)
         editor_tab = EditorTab(self.config_manager)
@@ -101,11 +103,11 @@ class MainWindow(Adw.ApplicationWindow):
         editor_page.set_title("Editor")
         self.editor_tab = editor_tab  # Store reference
 
-        # Community tab
-        community_label = Gtk.Label(label="Community Tab - Coming Soon")
-        community_page = self.tab_view.append(community_label)
+        # Community tab (fully implemented)
+        community_tab = CommunityTab()
+        community_page = self.tab_view.append(community_tab)
         community_page.set_title("Community")
-        self.community_tab = community_label  # Store reference
+        self.community_tab = community_tab  # Store reference
 
         # Cheatsheet tab (fully implemented)
         cheatsheet_tab = CheatsheetTab(self.config_manager)
@@ -113,11 +115,11 @@ class MainWindow(Adw.ApplicationWindow):
         cheatsheet_page.set_title("Cheatsheet")
         self.cheatsheet_tab = cheatsheet_tab  # Store reference
 
-        # Reference tab
-        reference_label = Gtk.Label(label="Reference Tab - Coming Soon")
-        reference_page = self.tab_view.append(reference_label)
+        # Reference tab (fully implemented)
+        reference_tab = ReferenceTab()
+        reference_page = self.tab_view.append(reference_tab)
         reference_page.set_title("Reference")
-        self.reference_tab = reference_label  # Store reference
+        self.reference_tab = reference_tab  # Store reference
 
     def _show_loading(self) -> None:
         """Show loading indicator."""
