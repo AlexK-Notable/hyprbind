@@ -50,7 +50,7 @@ def test_dialog_creation_add_mode(config_manager):
     dialog = BindingDialog(config_manager=config_manager)
 
     assert dialog.original_binding is None
-    assert dialog.get_heading() == "Add Binding"
+    assert isinstance(dialog, Adw.Window)
     assert dialog.config_manager is config_manager
 
 
@@ -59,7 +59,7 @@ def test_dialog_creation_edit_mode(config_manager, sample_binding):
     dialog = BindingDialog(config_manager=config_manager, binding=sample_binding)
 
     assert dialog.original_binding == sample_binding
-    assert dialog.get_heading() == "Edit Binding"
+    assert isinstance(dialog, Adw.Window)
 
 
 def test_form_fields_populated_in_edit_mode(config_manager, sample_binding):
@@ -227,12 +227,17 @@ def test_successful_save_operation_new_binding(config_manager):
     dialog.key_entry.set_text("Q")
     dialog.action_entry.set_text("exec")
 
-    # Simulate save response
-    dialog._on_response(dialog, "save")
+    # Mock close to verify it's called
+    dialog.close = MagicMock()
+
+    # Simulate save button click
+    dialog._on_save_clicked(None)
 
     # Verify add_binding was called
     assert config_manager.add_binding.called
     assert config_manager.save.called
+    # Verify dialog closed on success
+    assert dialog.close.called
 
 
 def test_successful_save_operation_edit_binding(config_manager, sample_binding):
@@ -243,12 +248,17 @@ def test_successful_save_operation_edit_binding(config_manager, sample_binding):
     dialog = BindingDialog(config_manager=config_manager, binding=sample_binding)
     dialog.key_entry.set_text("W")
 
-    # Simulate save response
-    dialog._on_response(dialog, "save")
+    # Mock close to verify it's called
+    dialog.close = MagicMock()
+
+    # Simulate save button click
+    dialog._on_save_clicked(None)
 
     # Verify update_binding was called
     assert config_manager.update_binding.called
     assert config_manager.save.called
+    # Verify dialog closed on success
+    assert dialog.close.called
 
 
 def test_conflict_detection(config_manager):
@@ -282,8 +292,11 @@ def test_conflict_detection(config_manager):
     # Mock _show_error to verify it's called
     dialog._show_error = MagicMock()
 
-    # Simulate save response
-    dialog._on_response(dialog, "save")
+    # Mock close to verify it's NOT called
+    dialog.close = MagicMock()
+
+    # Simulate save button click
+    dialog._on_save_clicked(None)
 
     # Verify error was shown with conflict info
     assert dialog._show_error.called
@@ -293,3 +306,54 @@ def test_conflict_detection(config_manager):
 
     # Verify save was NOT called
     assert not config_manager.save.called
+
+    # Verify dialog did NOT close (stays open for correction)
+    assert not dialog.close.called
+
+
+def test_validation_error_keeps_dialog_open(config_manager):
+    """Test that validation errors keep dialog open for correction."""
+    dialog = BindingDialog(config_manager=config_manager)
+
+    # Set invalid input (empty key)
+    dialog.key_entry.set_text("")
+    dialog.action_entry.set_text("exec")
+
+    # Mock _show_error to verify it's called
+    dialog._show_error = MagicMock()
+
+    # Mock close to verify it's NOT called
+    dialog.close = MagicMock()
+
+    # Mock add_binding to ensure it's not called
+    config_manager.add_binding = MagicMock()
+
+    # Simulate save button click
+    dialog._on_save_clicked(None)
+
+    # Verify error was shown
+    assert dialog._show_error.called
+
+    # Verify dialog did NOT close (stays open for correction)
+    assert not dialog.close.called
+
+    # Verify add_binding was NOT called (validation failed)
+    assert not config_manager.add_binding.called
+
+
+def test_cancel_button_closes_dialog(config_manager):
+    """Test that cancel button closes dialog without saving."""
+    dialog = BindingDialog(config_manager=config_manager)
+
+    # Set some input
+    dialog.key_entry.set_text("Q")
+    dialog.action_entry.set_text("exec")
+
+    # Mock close to verify it's called
+    dialog.close = MagicMock()
+
+    # Simulate cancel button click
+    dialog._on_cancel_clicked(None)
+
+    # Verify dialog closed
+    assert dialog.close.called

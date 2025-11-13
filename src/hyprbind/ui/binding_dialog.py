@@ -12,7 +12,7 @@ from hyprbind.core.config_manager import ConfigManager
 from hyprbind.core.models import Binding, BindType
 
 
-class BindingDialog(Adw.MessageDialog):
+class BindingDialog(Adw.Window):
     """Dialog for creating or editing a keybinding."""
 
     def __init__(
@@ -33,26 +33,49 @@ class BindingDialog(Adw.MessageDialog):
         self.config_manager = config_manager
         self.original_binding = binding  # Store for metadata preservation
 
-        # Dialog setup
+        # Window setup
         self.set_transient_for(parent)
         self.set_modal(True)
-        self.set_destroy_with_parent(True)
+        self.set_default_size(500, 600)
 
-        self.set_heading("Edit Binding" if binding else "Add Binding")
+        # Main box
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
-        # Responses
-        self.add_response("cancel", "Cancel")
-        self.add_response("save", "Save")
-        self.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        # HeaderBar with Cancel/Save buttons
+        header = Adw.HeaderBar()
 
-        # Form
+        cancel_button = Gtk.Button(label="Cancel")
+        cancel_button.connect("clicked", self._on_cancel_clicked)
+        header.pack_start(cancel_button)
+
+        save_button = Gtk.Button(label="Save")
+        save_button.add_css_class("suggested-action")
+        save_button.connect("clicked", self._on_save_clicked)
+        header.pack_end(save_button)
+
+        main_box.append(header)
+
+        # Title
+        title_label = Gtk.Label()
+        title_label.set_markup(
+            f"<span size='large' weight='bold'>{'Edit Binding' if binding else 'Add Binding'}</span>"
+        )
+        title_label.set_margin_top(12)
+        title_label.set_margin_bottom(12)
+        main_box.append(title_label)
+
+        # Form in scrolled window
         form = self._create_form()
-        self.set_extra_child(form)
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_vexpand(True)
+        scrolled.set_child(form)
+        main_box.append(scrolled)
 
+        self.set_content(main_box)
+
+        # Load binding if editing
         if binding:
             self._load_binding(binding)
-
-        self.connect("response", self._on_response)
 
     def _create_form(self) -> Gtk.Widget:
         """Create form widget with all binding fields.
@@ -200,45 +223,52 @@ class BindingDialog(Adw.MessageDialog):
 
         return None
 
-    def _on_response(self, dialog: Adw.MessageDialog, response: str) -> None:
-        """Handle dialog response.
+    def _on_cancel_clicked(self, button: Gtk.Button) -> None:
+        """Handle cancel button click.
 
         Args:
-            dialog: The dialog emitting the response
-            response: Response ID ("save" or "cancel")
+            button: The cancel button
         """
-        if response == "save":
-            # Validate
-            error = self._validate_input()
-            if error:
-                self._show_error(error, [])
-                return
+        self.close()
 
-            # Get binding
-            new_binding = self.get_binding()
+    def _on_save_clicked(self, button: Gtk.Button) -> None:
+        """Handle save button click.
 
-            # Save
-            if self.original_binding:
-                result = self.config_manager.update_binding(
-                    self.original_binding, new_binding
+        Args:
+            button: The save button
+        """
+        # Validate
+        error = self._validate_input()
+        if error:
+            self._show_error(error, [])
+            return  # Keep dialog open for correction
+
+        # Get binding
+        new_binding = self.get_binding()
+
+        # Save
+        if self.original_binding:
+            result = self.config_manager.update_binding(
+                self.original_binding, new_binding
+            )
+        else:
+            result = self.config_manager.add_binding(new_binding)
+
+        if result.success:
+            # Save to disk
+            self.config_manager.save()
+            self.close()  # Only close on success
+        else:
+            # Show error, keep dialog open
+            conflicts_text = ""
+            if result.conflicts:
+                conflicts_text = "\n\nConflicting bindings:\n" + "\n".join(
+                    [
+                        f"- {c.description} ({' + '.join(c.modifiers)} + {c.key})"
+                        for c in result.conflicts
+                    ]
                 )
-            else:
-                result = self.config_manager.add_binding(new_binding)
-
-            if result.success:
-                # Save to disk
-                self.config_manager.save()
-            else:
-                # Show error
-                conflicts_text = ""
-                if result.conflicts:
-                    conflicts_text = "\n\nConflicting bindings:\n" + "\n".join(
-                        [
-                            f"- {c.description} ({' + '.join(c.modifiers)} + {c.key})"
-                            for c in result.conflicts
-                        ]
-                    )
-                self._show_error(result.message + conflicts_text, result.conflicts)
+            self._show_error(result.message + conflicts_text, result.conflicts)
 
     def _show_error(self, message: str, conflicts: list) -> None:
         """Show error dialog.
@@ -247,7 +277,7 @@ class BindingDialog(Adw.MessageDialog):
             message: Error message to display
             conflicts: List of conflicting bindings (for context)
         """
-        error = Adw.MessageDialog.new(self.get_transient_for())
+        error = Adw.MessageDialog.new(self)
         error.set_heading("Error")
         error.set_body(message)
         error.add_response("ok", "OK")
