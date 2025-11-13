@@ -69,6 +69,9 @@ class MainWindow(Adw.ApplicationWindow):
     main_content: Gtk.Box = Gtk.Template.Child()
     header_bar: Adw.HeaderBar = Gtk.Template.Child()
     chezmoi_banner: Adw.Banner = Gtk.Template.Child()
+    live_mode_banner: Adw.Banner = Gtk.Template.Child()
+    mode_switch: Gtk.Switch = Gtk.Template.Child()
+    mode_label: Gtk.Label = Gtk.Template.Child()
     tab_view: Adw.TabView = Gtk.Template.Child()
     loading_box: Gtk.Box = Gtk.Template.Child()
     loading_spinner: Gtk.Spinner = Gtk.Template.Child()
@@ -81,8 +84,15 @@ class MainWindow(Adw.ApplicationWindow):
         from hyprbind.core.config_manager import ConfigManager
         self.config_manager = ConfigManager()
 
+        # Initialize ModeManager
+        from hyprbind.core.mode_manager import ModeManager
+        self.mode_manager = ModeManager(self.config_manager)
+
         # Setup Chezmoi banner
         self._setup_chezmoi_banner()
+
+        # Setup mode toggle
+        self._setup_mode_toggle()
 
         # Setup tabs
         self._setup_tabs()
@@ -96,6 +106,17 @@ class MainWindow(Adw.ApplicationWindow):
     def _setup_chezmoi_banner(self) -> None:
         """Setup the Chezmoi banner and connect its signals."""
         self.chezmoi_banner.connect("button-clicked", self._on_chezmoi_learn_more)
+
+    def _setup_mode_toggle(self) -> None:
+        """Setup mode toggle switch and signals."""
+        # Connect switch signal
+        self.mode_switch.connect("notify::active", self._on_mode_toggled)
+
+        # Connect banner button
+        self.live_mode_banner.connect("button-clicked", self._on_live_save_clicked)
+
+        # Update initial state
+        self._update_mode_ui()
 
     def _check_chezmoi_management(self) -> None:
         """Check if the config file is managed by Chezmoi and show banner if it is."""
@@ -152,7 +173,7 @@ class MainWindow(Adw.ApplicationWindow):
         from hyprbind.ui.reference_tab import ReferenceTab
 
         # Editor tab (fully implemented)
-        editor_tab = EditorTab(self.config_manager)
+        editor_tab = EditorTab(self.config_manager, self.mode_manager)
         editor_page = self.tab_view.append(editor_tab)
         editor_page.set_title("Editor")
         self.editor_tab = editor_tab  # Store reference
@@ -267,3 +288,97 @@ class MainWindow(Adw.ApplicationWindow):
                 error_dialog.set_body(f"Failed to save configuration:\n{result.message}")
                 error_dialog.add_response("ok", "OK")
                 error_dialog.present()
+
+    def _on_mode_toggled(self, switch: Gtk.Switch, _: Any) -> None:
+        """Handle mode toggle switch change."""
+        if switch.get_active():
+            # Trying to enable Live mode
+            if not self.mode_manager.is_live_available():
+                # Hyprland not running - revert switch
+                switch.set_active(False)
+                self._show_error_dialog(
+                    "Live Mode Unavailable",
+                    "Hyprland is not running. Live mode requires a running Hyprland instance.",
+                )
+                return
+
+            # Show confirmation dialog
+            self._show_live_mode_confirmation(switch)
+        else:
+            # Switching back to Safe mode
+            from hyprbind.core.mode_manager import Mode
+
+            self.mode_manager.set_mode(Mode.SAFE)
+            self._update_mode_ui()
+
+    def _show_live_mode_confirmation(self, switch: Gtk.Switch) -> None:
+        """Show confirmation dialog for enabling Live mode."""
+        dialog = Adw.MessageDialog.new(self)
+        dialog.set_heading("Enable Live Mode?")
+        dialog.set_body(
+            "Live mode sends changes directly to Hyprland via IPC.\n\n"
+            "• Changes are temporary (not saved to file)\n"
+            "• Test bindings immediately without reload\n"
+            "• Reverts when HyprBind closes\n\n"
+            "Click 'Save' at any time to write changes to config file."
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("enable", "Enable Live Mode")
+        dialog.set_response_appearance("enable", Adw.ResponseAppearance.SUGGESTED)
+
+        def on_response(d: Adw.MessageDialog, response_id: str) -> None:
+            from hyprbind.core.mode_manager import Mode
+
+            if response_id == "enable":
+                self.mode_manager.set_mode(Mode.LIVE)
+                self._update_mode_ui()
+            else:
+                # User cancelled - revert switch
+                switch.set_active(False)
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _update_mode_ui(self) -> None:
+        """Update UI to reflect current mode."""
+        from hyprbind.core.mode_manager import Mode
+
+        mode = self.mode_manager.get_mode()
+
+        if mode == Mode.SAFE:
+            self.mode_label.set_text("Safe")
+            self.mode_label.remove_css_class("success")
+            self.live_mode_banner.set_revealed(False)
+        else:
+            self.mode_label.set_text("Live")
+            self.mode_label.add_css_class("success")
+            self.live_mode_banner.set_revealed(True)
+
+    def _on_live_save_clicked(self, banner: Adw.Banner) -> None:
+        """Handle 'Save Now' button in Live mode banner."""
+        # Save config to file
+        result = self.config_manager.save()
+
+        if result.success:
+            # Show success toast (if we had toast overlay)
+            # For now, just a simple dialog
+            dialog = Adw.MessageDialog.new(self)
+            dialog.set_heading("Saved")
+            dialog.set_body("Configuration saved to file")
+            dialog.add_response("ok", "OK")
+            dialog.present()
+        else:
+            self._show_error_dialog("Save Failed", result.message)
+
+    def _show_error_dialog(self, heading: str, message: str) -> None:
+        """Show error dialog.
+
+        Args:
+            heading: Dialog heading
+            message: Error message
+        """
+        dialog = Adw.MessageDialog.new(self)
+        dialog.set_heading(heading)
+        dialog.set_body(message)
+        dialog.add_response("ok", "OK")
+        dialog.present()

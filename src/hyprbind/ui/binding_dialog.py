@@ -9,6 +9,7 @@ from gi.repository import Gtk, Adw
 from typing import Optional
 
 from hyprbind.core.config_manager import ConfigManager
+from hyprbind.core.mode_manager import ModeManager, Mode
 from hyprbind.core.models import Binding, BindType
 
 
@@ -18,6 +19,7 @@ class BindingDialog(Adw.Window):
     def __init__(
         self,
         config_manager: ConfigManager,
+        mode_manager: ModeManager,
         binding: Optional[Binding] = None,
         parent: Optional[Gtk.Window] = None,
     ) -> None:
@@ -25,12 +27,14 @@ class BindingDialog(Adw.Window):
 
         Args:
             config_manager: ConfigManager instance for saving bindings
+            mode_manager: ModeManager instance for Safe/Live mode operations
             binding: Existing binding to edit (None for new binding)
             parent: Parent window for the dialog
         """
         super().__init__()
 
         self.config_manager = config_manager
+        self.mode_manager = mode_manager
         self.original_binding = binding  # Store for metadata preservation
 
         # Window setup
@@ -246,17 +250,30 @@ class BindingDialog(Adw.Window):
         # Get binding
         new_binding = self.get_binding()
 
-        # Save
+        # Use mode_manager to apply binding based on current mode
         if self.original_binding:
-            result = self.config_manager.update_binding(
-                self.original_binding, new_binding
-            )
+            # For edit: first remove old, then add new
+            result = self.mode_manager.apply_binding(self.original_binding, "remove")
+            if result.success:
+                result = self.mode_manager.apply_binding(new_binding, "add")
         else:
-            result = self.config_manager.add_binding(new_binding)
+            # For new binding: just add
+            result = self.mode_manager.apply_binding(new_binding, "add")
 
         if result.success:
-            # Save to disk
-            self.config_manager.save()
+            # Show appropriate message based on mode
+            mode = self.mode_manager.get_mode()
+            if mode == Mode.LIVE:
+                # In Live mode, show toast/dialog that it was tested via IPC
+                self._show_success_message(
+                    "Binding tested via IPC (not saved to file)\n\n"
+                    "Click 'Save Now' in the banner to write to config file."
+                )
+            else:
+                # In Safe mode, save to disk
+                self.config_manager.save()
+                self._show_success_message("Binding saved to config file")
+
             self.close()  # Only close on success
         else:
             # Show error, keep dialog open
@@ -282,6 +299,18 @@ class BindingDialog(Adw.Window):
         error.set_body(message)
         error.add_response("ok", "OK")
         error.present()
+
+    def _show_success_message(self, message: str) -> None:
+        """Show success message dialog.
+
+        Args:
+            message: Success message to display
+        """
+        dialog = Adw.MessageDialog.new(self)
+        dialog.set_heading("Success")
+        dialog.set_body(message)
+        dialog.add_response("ok", "OK")
+        dialog.present()
 
     def get_binding(self) -> Binding:
         """Construct binding from form, preserving metadata when editing.

@@ -9,6 +9,7 @@ from gi.repository import Gtk, Gio, GObject, Adw
 from typing import Optional
 
 from hyprbind.core.config_manager import ConfigManager
+from hyprbind.core.mode_manager import ModeManager
 from hyprbind.core.models import Binding
 from hyprbind.ui.binding_dialog import BindingDialog
 
@@ -43,14 +44,16 @@ class BindingWithSection(GObject.Object):
 class EditorTab(Gtk.Box):
     """Editor tab displaying bindings with category grouping."""
 
-    def __init__(self, config_manager: ConfigManager) -> None:
+    def __init__(self, config_manager: ConfigManager, mode_manager: ModeManager) -> None:
         """Initialize the editor tab.
 
         Args:
             config_manager: ConfigManager instance for loading bindings
+            mode_manager: ModeManager instance for Safe/Live mode operations
         """
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.config_manager = config_manager
+        self.mode_manager = mode_manager
 
         # Create list store for BindingWithSection objects
         self.list_store = Gio.ListStore.new(BindingWithSection)
@@ -259,7 +262,9 @@ class EditorTab(Gtk.Box):
             button: The button that was clicked
         """
         dialog = BindingDialog(
-            config_manager=self.config_manager, parent=self.get_root()
+            config_manager=self.config_manager,
+            mode_manager=self.mode_manager,
+            parent=self.get_root(),
         )
         dialog.present()
 
@@ -280,7 +285,10 @@ class EditorTab(Gtk.Box):
         binding = item.binding
 
         dialog = BindingDialog(
-            config_manager=self.config_manager, binding=binding, parent=self.get_root()
+            config_manager=self.config_manager,
+            mode_manager=self.mode_manager,
+            binding=binding,
+            parent=self.get_root(),
         )
         dialog.present()
 

@@ -13,7 +13,33 @@
         <property name="orientation">vertical</property>
 
         <child>
-          <object class="AdwHeaderBar" id="header_bar"/>
+          <object class="AdwHeaderBar" id="header_bar">
+            <child type="end">
+              <object class="GtkBox">
+                <property name="spacing">6</property>
+                <property name="margin-end">6</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Mode:</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSwitch" id="mode_switch">
+                    <property name="valign">center</property>
+                    <property name="tooltip-text">Toggle between Safe mode (file only) and Live mode (IPC testing)</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="mode_label">
+                    <property name="label">Safe</property>
+                    <style>
+                      <class name="title-4"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
         </child>
 
         <child>
@@ -21,6 +47,14 @@
             <property name="revealed">false</property>
             <property name="title">This file is managed by Chezmoi</property>
             <property name="button-label">Learn More</property>
+          </object>
+        </child>
+
+        <child>
+          <object class="AdwBanner" id="live_mode_banner">
+            <property name="revealed">false</property>
+            <property name="title">Live Mode Active - Changes are temporary until saved</property>
+            <property name="button-label">Save Now</property>
           </object>
         </child>
 
