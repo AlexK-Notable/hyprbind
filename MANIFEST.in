@@ -1,0 +1,9 @@
+# Include UI template files
+recursive-include data/ui *.ui
+
+# Include documentation
+include README.md
+include LICENSE
+
+# Include project metadata
+include pyproject.toml

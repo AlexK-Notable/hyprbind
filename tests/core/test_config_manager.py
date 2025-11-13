@@ -260,3 +260,53 @@ class TestConfigNotLoaded:
 
         assert result.success is False
         assert "not loaded" in result.message.lower()
+
+
+class TestDefaultPath:
+    """Test ConfigManager default path behavior."""
+
+    def test_default_config_path(self):
+        """ConfigManager uses default path when none provided."""
+        manager = ConfigManager()
+        expected_path = Path.home() / ".config" / "hypr" / "config" / "keybinds.conf"
+        assert manager.config_path == expected_path
+
+
+class TestEdgeCases:
+    """Test edge cases and error conditions."""
+
+    def test_update_nonexistent_binding(self):
+        """Update non-existent binding fails gracefully."""
+        fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_keybinds.conf"
+        manager = ConfigManager(config_path=fixture_path)
+        manager.load()
+
+        # Create a binding that doesn't exist in the config
+        fake_binding = Binding(
+            type=BindType.BINDD,
+            modifiers=["$mainMod"],
+            key="F99",
+            description="Fake",
+            action="exec",
+            params="fake",
+            submap=None,
+            line_number=999,
+            category="Fake",
+        )
+
+        new_binding = Binding(
+            type=BindType.BINDD,
+            modifiers=["$mainMod"],
+            key="F100",
+            description="New",
+            action="exec",
+            params="new",
+            submap=None,
+            line_number=1000,
+            category="Fake",
+        )
+
+        result = manager.update_binding(fake_binding, new_binding)
+
+        assert result.success is False
+        assert "not found" in result.message.lower()
