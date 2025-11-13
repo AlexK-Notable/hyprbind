@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+
+  <template class="HyprBindMainWindow" parent="AdwApplicationWindow">
+    <property name="title">HyprBind</property>
+    <property name="default-width">1200</property>
+    <property name="default-height">800</property>
+
+    <child>
+      <object class="GtkBox" id="main_content">
+        <property name="orientation">vertical</property>
+
+        <child>
+          <object class="AdwHeaderBar" id="header_bar"/>
+        </child>
+
+        <child>
+          <object class="GtkLabel" id="placeholder_label">
+            <property name="label">HyprBind - Ready!</property>
+            <property name="margin-top">50</property>
+            <property name="margin-bottom">50</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>
