@@ -57,8 +57,11 @@ def shutdown_app(app: Adw.Application) -> None:
 
     # Process remaining events
     context = GLib.MainContext.default()
-    while context.pending():
+    max_iterations = 100
+    iterations = 0
+    while context.pending() and iterations < max_iterations:
         context.iteration(False)
+        iterations += 1
 
     # Quit application
     app.quit()
