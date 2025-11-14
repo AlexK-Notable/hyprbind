@@ -45,9 +45,16 @@ def launch_app(config_path: Path) -> Tuple[Adw.Application, 'MainWindow']:
     # This is required for dialogs to work properly
     app.register()
 
-    # Create main window with test config
+    # Create main window
     window = MainWindow(application=app)
+
+    # Set the test config path before config loads
+    # (MainWindow starts async load in __init__, we need to update the path first)
     window.config_manager.config_path = config_path
+
+    # Note: The async config loading from MainWindow.__init__ will load the default config.
+    # Test fixtures should wait for that load to complete, then reload with config_manager.load()
+    # to pick up the test config path.
 
     return app, window
 
