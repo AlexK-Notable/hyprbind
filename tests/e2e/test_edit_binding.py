@@ -153,9 +153,9 @@ def test_edit_binding_end_to_end(main_window, temp_config_file):
     assert hasattr(dialog, 'action_entry')
     assert dialog.action_entry.get_text() == target_binding.action
 
-    # Step 6: Modify key field to a unique test key
-    # Use "TEST_EDIT_KEY" to avoid conflicts with existing bindings
-    new_key = "TEST_EDIT_KEY"
+    # Step 6: Modify key field from Q to W (as per design doc)
+    # Change the key to "W" to match the design specification
+    new_key = "W"
     simulate_text_entry(dialog.key_entry, new_key)
 
     # Verify the change
@@ -235,16 +235,28 @@ def test_edit_binding_end_to_end(main_window, temp_config_file):
         f"Config content:\n{config_content}"
     )
 
-    # For a more thorough check, verify the old binding line is gone
-    # We look for a line with the original key and the same description
-    # This is a bit fuzzy but should work for most cases
-    old_binding_line_pattern = f"{original_key}.*{target_binding.description}"
-    import re
-    old_binding_matches = re.findall(old_binding_line_pattern, config_content)
+    # Verify binding appears at expected line position
+    # (Edit should preserve line number, not delete+add)
+    config_lines = config_content.split('\n')
+    new_binding_line_num = None
+    for i, line in enumerate(config_lines):
+        if new_key in line and target_binding.description in line:
+            new_binding_line_num = i
+            break
 
-    # Should find exactly 0 matches for old binding (it's been replaced)
-    # Note: If the original key is used in other bindings, this might fail
-    # So we'll just verify the new key exists for now
+    assert new_binding_line_num is not None, "New binding should exist at a line position"
+
+    # Verify old binding is completely removed from config file
+    old_modifiers = ', '.join(target_binding.modifiers) if target_binding.modifiers else ''
+    old_binding_line = f"bindd = {old_modifiers}, {original_key}, {target_binding.description}, {target_binding.action}"
+    if target_binding.params:
+        old_binding_line += f", {target_binding.params}"
+
+    assert old_binding_line not in config_content, (
+        f"Old binding should be removed from config.\n"
+        f"Expected removed: {old_binding_line}\n"
+        f"Config content:\n{config_content}"
+    )
 
     # Note: We don't check list count here because the config may be reloaded
     # from a different source (e.g., user's actual config) after save in the test environment
