@@ -42,6 +42,10 @@ class BindingDialog(Adw.Window):
         self.set_modal(True)
         self.set_default_size(500, 600)
 
+        # Set application from parent (required for window to be tracked)
+        if parent:
+            self.set_application(parent.get_application())
+
         # Main box
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 

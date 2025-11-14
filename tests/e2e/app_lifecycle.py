@@ -34,9 +34,16 @@ def launch_app(config_path: Path) -> Tuple[Adw.Application, 'MainWindow']:
         Tuple of (application, main_window)
     """
     from hyprbind.ui.main_window import MainWindow
+    import time
 
-    # Create application
-    app = Adw.Application(application_id="dev.hyprbind.e2e.test")
+    # Create application with unique ID to avoid conflicts between tests
+    # Use timestamp to ensure uniqueness
+    app_id = f"dev.hyprbind.e2e.test.{int(time.time() * 1000000)}"
+    app = Adw.Application(application_id=app_id)
+
+    # Register the application (emits startup signal)
+    # This is required for dialogs to work properly
+    app.register()
 
     # Create main window with test config
     window = MainWindow(application=app)
@@ -51,20 +58,29 @@ def shutdown_app(app: Adw.Application) -> None:
     Args:
         app: Application instance to shutdown
     """
-    # Close all windows
-    for window in app.get_windows():
+    import time
+
+    # Close all windows first
+    windows = list(app.get_windows())
+    for window in windows:
         window.close()
 
-    # Process remaining events
+    # Process pending events to ensure windows are destroyed
     context = GLib.MainContext.default()
-    max_iterations = 100
-    iterations = 0
-    while context.pending() and iterations < max_iterations:
-        context.iteration(False)
-        iterations += 1
+    for i in range(200):
+        if context.pending():
+            context.iteration(False)
 
-    # Quit application
-    app.quit()
+    # Release the app (this unregisters from DBus)
+    app.release()
+
+    # Process more events and add small delay to ensure DBus unregistration completes
+    for i in range(100):
+        if context.pending():
+            context.iteration(False)
+
+    # Small sleep to ensure DBus cleanup completes
+    time.sleep(0.05)
 
 
 @contextmanager
