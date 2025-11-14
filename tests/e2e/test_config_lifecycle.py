@@ -65,8 +65,10 @@ def test_load_and_save_config(main_window, temp_config_file):
     wait_for_condition(config_loaded, timeout=3.0)
 
     # Step 3: Verify bindings appear in editor
+    # list_store contains both category headers AND bindings
+    # temp_config has 2 category headers + 5 bindings = 7 items total
     initial_count = editor_tab.list_store.get_n_items()
-    assert initial_count > 0, "List should have bindings from loaded config"
+    assert initial_count == 7, f"Expected 7 items (2 headers + 5 bindings) from temp config, got {initial_count}"
 
     # Count initial bindings for later verification
     initial_binding_count = 0
@@ -75,7 +77,7 @@ def test_load_and_save_config(main_window, temp_config_file):
         if not item.is_header and item.binding:
             initial_binding_count += 1
 
-    assert initial_binding_count > 0, "Should have at least one binding to test with"
+    assert initial_binding_count == 5, f"Expected 5 bindings in temp config, got {initial_binding_count}"
 
     # Step 4: Select first binding to modify
     selected_position = None
@@ -131,9 +133,41 @@ def test_load_and_save_config(main_window, temp_config_file):
     # Verify dirty flag is cleared after save
     assert not config_manager.is_dirty(), "Config should not be dirty after save"
 
-    # Step 7: Reload config from file
+    # Step 7: Reload config from file (on GTK main thread)
     # This simulates app restart or manual reload
-    reloaded_config = config_manager.load()
+    # CRITICAL: Must run on main thread to avoid GTK threading violations
+    import threading
+    from gi.repository import GLib
+
+    reload_complete = threading.Event()
+    reloaded_config = None
+    reload_error = None
+
+    def reload_on_main_thread():
+        nonlocal reloaded_config, reload_error
+        try:
+            reloaded_config = config_manager.load()
+        except Exception as e:
+            reload_error = e
+        reload_complete.set()
+        return False  # Don't repeat idle call
+
+    GLib.idle_add(reload_on_main_thread)
+
+    # Wait for reload to complete, processing GTK events while waiting
+    import time
+    start_time = time.time()
+    timeout = 5.0
+    context = GLib.MainContext.default()
+
+    while not reload_complete.is_set() and (time.time() - start_time < timeout):
+        # Process pending GTK events to allow idle_add callback to execute
+        while context.pending():
+            context.iteration(False)
+        time.sleep(0.01)  # Small sleep to avoid busy-waiting
+
+    assert reload_complete.is_set(), "Config reload timed out"
+    assert reload_error is None, f"Config reload failed: {reload_error}"
     assert reloaded_config is not None, "Config should reload successfully"
 
     # Wait for UI to update after reload (observer pattern notification)
@@ -221,8 +255,8 @@ def test_load_and_save_config(main_window, temp_config_file):
     # (Note: File may have more lines than parsed bindings due to comments, submaps, etc.)
     binding_lines = [line for line in config_lines if line.strip().startswith(('bindd', 'bind ', 'bindm', 'bindel'))]
     assert len(binding_lines) > 0, "Config file should contain binding lines"
-    assert len(binding_lines) >= initial_binding_count, (
-        f"Config file should have at least {initial_binding_count} binding lines, found {len(binding_lines)}"
+    assert len(binding_lines) == initial_binding_count, (
+        f"Config file should have exactly {initial_binding_count} binding lines, found {len(binding_lines)}"
     )
 
     # Step 12: Verify bindings exist after reload (no total loss)

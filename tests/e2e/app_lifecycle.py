@@ -34,6 +34,7 @@ def launch_app(config_path: Path) -> Tuple[Adw.Application, 'MainWindow']:
         Tuple of (application, main_window)
     """
     from hyprbind.ui.main_window import MainWindow
+    from hyprbind.core.config_manager import ConfigManager
     import time
 
     # Create application with unique ID to avoid conflicts between tests
@@ -45,16 +46,29 @@ def launch_app(config_path: Path) -> Tuple[Adw.Application, 'MainWindow']:
     # This is required for dialogs to work properly
     app.register()
 
-    # Create main window
-    window = MainWindow(application=app)
+    # CRITICAL FIX: Monkey-patch ConfigManager.__init__ to use test config path
+    # MainWindow creates ConfigManager in __init__ and immediately starts async loading,
+    # so we need to inject the test path BEFORE MainWindow is created
+    original_init = ConfigManager.__init__
 
-    # Set the test config path before config loads
-    # (MainWindow starts async load in __init__, we need to update the path first)
-    window.config_manager.config_path = config_path
+    def patched_init(cm_self, cm_config_path=None):
+        # Always use test config path, ignoring any passed argument
+        original_init(cm_self, config_path=config_path)
 
-    # Note: The async config loading from MainWindow.__init__ will load the default config.
-    # Test fixtures should wait for that load to complete, then reload with config_manager.load()
-    # to pick up the test config path.
+    ConfigManager.__init__ = patched_init
+
+    try:
+        # Create main window (will now use test config path)
+        window = MainWindow(application=app)
+
+        # Verify the config path was set correctly
+        assert window.config_manager.config_path == config_path, (
+            f"Config path not set correctly! "
+            f"Expected: {config_path}, Got: {window.config_manager.config_path}"
+        )
+    finally:
+        # Restore original __init__ to avoid affecting other tests
+        ConfigManager.__init__ = original_init
 
     return app, window
 
