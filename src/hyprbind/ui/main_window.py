@@ -101,7 +101,8 @@ class MainWindow(Adw.ApplicationWindow):
         self._setup_tabs()
 
         # Register as observer for config changes
-        self.config_manager.add_observer(self._on_config_changed)
+        # Wrap callback to ensure it runs on main thread (GTK requirement)
+        self.config_manager.add_observer(lambda: GLib.idle_add(self._on_config_changed))
 
         # Load config asynchronously
         self._load_config_async()

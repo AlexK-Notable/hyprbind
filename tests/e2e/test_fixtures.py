@@ -50,7 +50,15 @@ def test_e2e_app_fixture(e2e_app):
 
     # Verify app is an Adw.Application instance
     assert isinstance(app, Adw.Application)
-    assert app.get_application_id() == "dev.hyprbind.e2e.test"
+    # Check app_id starts with expected prefix (includes PID-counter suffix like test12345-1)
+    app_id = app.get_application_id()
+    assert app_id is not None, "Application ID should not be None"
+    assert app_id.startswith("dev.hyprbind.e2e.test"), f"Expected app_id to start with 'dev.hyprbind.e2e.test', got: {app_id}"
+    # Verify it's a valid DBus name format (reverse-DNS with dots)
+    assert "." in app_id, "Application ID should contain dots (reverse-DNS format)"
+    # Verify counter suffix format (PID-counter like 12345-1)
+    import re
+    assert re.search(r'test\d+-\d+$', app_id), f"Expected app_id to end with PID-counter pattern (e.g., test12345-1), got: {app_id}"
 
     # Verify window exists
     assert window is not None

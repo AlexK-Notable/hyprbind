@@ -34,7 +34,7 @@ hyprbind = "hyprbind.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["../data/ui/*.ui"]
+"*" = ["../data/ui/*.ui", "../data/*.desktop"]
 
 [tool.black]
 line-length = 100

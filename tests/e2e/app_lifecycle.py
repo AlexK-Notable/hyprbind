@@ -36,10 +36,25 @@ def launch_app(config_path: Path) -> Tuple[Adw.Application, 'MainWindow']:
     from hyprbind.ui.main_window import MainWindow
     from hyprbind.core.config_manager import ConfigManager
     import time
+    import threading
 
     # Create application with unique ID to avoid conflicts between tests
-    # Use timestamp to ensure uniqueness
-    app_id = f"dev.hyprbind.e2e.test.{int(time.time() * 1000000)}"
+    # GLib application IDs must be valid DBus names (alphanumeric, dots, hyphens)
+    # Use PID + thread-local counter for uniqueness per test invocation
+    import os
+
+    # Thread-safe counter for uniqueness within same process
+    if not hasattr(launch_app, '_counter'):
+        launch_app._counter = 0
+        launch_app._lock = threading.Lock()
+
+    with launch_app._lock:
+        launch_app._counter += 1
+        counter = launch_app._counter
+
+    app_id = f"dev.hyprbind.e2e.test{os.getpid()}-{counter}"
+
+    # Create application with ID in constructor
     app = Adw.Application(application_id=app_id)
 
     # Register the application (emits startup signal)

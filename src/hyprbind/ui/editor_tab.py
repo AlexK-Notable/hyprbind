@@ -5,7 +5,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Gtk, Gio, GObject, Adw
+from gi.repository import Gtk, Gio, GObject, Adw, GLib
 from typing import Optional
 
 from hyprbind.core.config_manager import ConfigManager
@@ -79,7 +79,8 @@ class EditorTab(Gtk.Box):
         self.prepend(toolbar)
 
         # Register as observer for config changes
-        self.config_manager.add_observer(self.reload_bindings)
+        # Wrap callback to ensure it runs on main thread (GTK requirement)
+        self.config_manager.add_observer(lambda: GLib.idle_add(self.reload_bindings))
 
         # Initial load
         self.reload_bindings()

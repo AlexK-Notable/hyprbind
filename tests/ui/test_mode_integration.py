@@ -3,6 +3,8 @@
 import pytest
 import gi
 from unittest.mock import Mock, patch, MagicMock
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -20,9 +22,37 @@ def app():
 
 
 @pytest.fixture
-def main_window(app):
-    """Create MainWindow instance."""
-    window = MainWindow(application=app)
+def temp_config_file(tmp_path):
+    """Create temporary config file with sample bindings."""
+    config_file = tmp_path / "test_hyprland.conf"
+    config_content = """# Test config
+bindd = $mainMod, RETURN, Terminal, exec, alacritty
+bindd = $mainMod, Q, Close window, killactive,
+"""
+    config_file.write_text(config_content)
+    return config_file
+
+
+@pytest.fixture
+def main_window(app, temp_config_file):
+    """Create MainWindow instance with loaded config."""
+    from hyprbind.core.config_manager import ConfigManager
+
+    # Patch ConfigManager to use temp config
+    original_init = ConfigManager.__init__
+
+    def patched_init(cm_self, cm_config_path=None):
+        original_init(cm_self, config_path=temp_config_file)
+
+    ConfigManager.__init__ = patched_init
+
+    try:
+        window = MainWindow(application=app)
+        # Load config synchronously for tests
+        window.config_manager.load()
+    finally:
+        ConfigManager.__init__ = original_init
+
     return window
 
 

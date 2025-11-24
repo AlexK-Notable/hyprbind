@@ -4,7 +4,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 
-from gi.repository import Gtk, Gio, GObject
+from gi.repository import Gtk, Gio, GObject, GLib
 from typing import Optional
 from pathlib import Path
 
@@ -61,7 +61,8 @@ class CheatsheetTab(Gtk.Box):
         self.append(scrolled)
 
         # Register as observer for config changes
-        self.config_manager.add_observer(self.reload_cheatsheet)
+        # Wrap callback to ensure it runs on main thread (GTK requirement)
+        self.config_manager.add_observer(lambda: GLib.idle_add(self.reload_cheatsheet))
 
         # Load bindings
         self.reload_cheatsheet()
