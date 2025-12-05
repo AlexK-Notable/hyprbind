@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=HyprBind
+GenericName=Hyprland Keybinding Manager
+Comment=Visual keybinding editor for Hyprland with conflict detection
+Icon=com.hyprbind.HyprBind
+Exec=hyprbind
+Terminal=false
+Categories=Utility;Settings;GTK;
+Keywords=hyprland;keybindings;wayland;compositor;
+StartupNotify=true
+StartupWMClass=hyprbind
