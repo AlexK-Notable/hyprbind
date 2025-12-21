@@ -4,9 +4,10 @@ import json
 import base64
 import re
 import ssl
+import threading
 import urllib.request
 import urllib.error
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Callable, Optional
 
 from hyprbind.core.config_manager import ConfigManager, OperationResult
 from hyprbind.core.validators import PathValidator
@@ -15,6 +16,9 @@ from hyprbind.core.constants import GITHUB_REQUEST_TIMEOUT
 from hyprbind.parsers.config_parser import ConfigParser
 
 logger = get_logger(__name__)
+
+# Type alias for async callbacks
+AsyncCallback = Callable[[Dict[str, Any]], None]
 
 # Create secure SSL context for HTTPS requests
 # This enforces certificate verification and modern TLS settings
@@ -296,3 +300,130 @@ class GitHubFetcher:
             return OperationResult(
                 success=False, message=f"Failed to parse config: {e}"
             )
+
+    # =========================================================================
+    # Async Methods - Use these from GTK UI to prevent blocking main thread
+    # =========================================================================
+
+    @staticmethod
+    def _run_async(
+        sync_func: Callable[[], Dict[str, Any]],
+        callback: AsyncCallback,
+        use_glib: bool = True,
+    ) -> threading.Thread:
+        """
+        Run a synchronous function asynchronously with callback.
+
+        Args:
+            sync_func: Function to run in background thread
+            callback: Function to call with result (on main thread if use_glib)
+            use_glib: If True, use GLib.idle_add for GTK thread safety
+
+        Returns:
+            The background thread (already started)
+        """
+
+        def worker():
+            try:
+                result = sync_func()
+            except Exception as e:
+                result = {"success": False, "message": f"Unexpected error: {e}"}
+
+            # Call back on appropriate thread
+            if use_glib:
+                try:
+                    from gi.repository import GLib
+
+                    GLib.idle_add(callback, result)
+                except ImportError:
+                    # GLib not available, call directly
+                    callback(result)
+            else:
+                callback(result)
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+        return thread
+
+    @staticmethod
+    def fetch_profile_async(
+        username: str,
+        callback: AsyncCallback,
+        use_glib: bool = True,
+    ) -> threading.Thread:
+        """
+        Fetch GitHub profile asynchronously.
+
+        Args:
+            username: GitHub username
+            callback: Function called with result dict when complete
+            use_glib: Use GLib.idle_add for GTK thread safety (default True)
+
+        Returns:
+            The background thread
+
+        Example:
+            def on_profile_loaded(result):
+                if result["success"]:
+                    for repo in result["repos"]:
+                        print(repo["name"])
+
+            GitHubFetcher.fetch_profile_async("user", on_profile_loaded)
+        """
+        return GitHubFetcher._run_async(
+            lambda: GitHubFetcher.fetch_profile(username),
+            callback,
+            use_glib,
+        )
+
+    @staticmethod
+    def find_config_files_async(
+        username: str,
+        repo: str,
+        callback: AsyncCallback,
+        use_glib: bool = True,
+    ) -> threading.Thread:
+        """
+        Find config files in repository asynchronously.
+
+        Args:
+            username: GitHub username
+            repo: Repository name
+            callback: Function called with result dict when complete
+            use_glib: Use GLib.idle_add for GTK thread safety (default True)
+
+        Returns:
+            The background thread
+        """
+        return GitHubFetcher._run_async(
+            lambda: GitHubFetcher.find_config_files(username, repo),
+            callback,
+            use_glib,
+        )
+
+    @staticmethod
+    def download_config_async(
+        username: str,
+        repo: str,
+        path: str,
+        callback: AsyncCallback,
+        use_glib: bool = True,
+    ) -> threading.Thread:
+        """
+        Download config file asynchronously.
+
+        Args:
+            username: GitHub username
+            repo: Repository name
+            path: Path to config file
+            callback: Function called with result dict when complete
+            use_glib: Use GLib.idle_add for GTK thread safety (default True)
+
+        Returns:
+            The background thread
+        """
+        return GitHubFetcher._run_async(
+            lambda: GitHubFetcher.download_config(username, repo, path),
+            callback,
+            use_glib,
+        )
