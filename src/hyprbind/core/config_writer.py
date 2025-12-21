@@ -132,8 +132,8 @@ class ConfigWriter:
         """
         bind_type = binding.type.value
 
-        # Modifiers
-        mods = ", ".join(binding.modifiers) if binding.modifiers else ""
+        # Modifiers - joined with space, not comma (Hyprland syntax: "$mainMod SHIFT")
+        mods = " ".join(binding.modifiers) if binding.modifiers else ""
 
         # Build line based on type
         if binding.type.value == "bindd":

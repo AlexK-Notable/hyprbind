@@ -16,15 +16,21 @@ from hyprbind.ui.binding_dialog import BindingDialog
 
 
 @pytest.fixture
-def config_manager():
-    """Create ConfigManager with test config."""
-    manager = ConfigManager()
+def config_manager(tmp_path):
+    """Create ConfigManager with test config using isolated temp path.
+
+    CRITICAL: Uses tmp_path to ensure tests NEVER write to user's real config.
+    """
+    temp_config = tmp_path / "test_keybinds.conf"
+    temp_config.write_text("# Test config\n")
+
+    manager = ConfigManager(config_path=temp_config, skip_validation=True)
     manager.config = Config()
     manager.config.categories = {
         "Applications": Category(name="Applications"),
         "Window Management": Category(name="Window Management"),
     }
-    # Mock save method (not implemented yet)
+    # Mock save method as additional safety layer
     manager.save = MagicMock(return_value=OperationResult(success=True))
     return manager
 
