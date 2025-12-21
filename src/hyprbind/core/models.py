@@ -97,7 +97,12 @@ class Config:
     _binding_index: dict[tuple, Binding] = field(default_factory=dict, repr=False)
 
     def add_binding(self, binding: Binding) -> None:
-        """Add binding to appropriate category and update index."""
+        """Add binding to appropriate category and update index.
+
+        Note: Caller should check for conflicts before adding (use find_conflict()).
+        If a binding with the same conflict_key exists, this overwrites the index
+        entry - use ConfigManager.add_binding() for conflict-safe operations.
+        """
         if binding.category not in self.categories:
             self.categories[binding.category] = Category(name=binding.category)
         self.categories[binding.category].bindings.append(binding)
@@ -130,3 +135,14 @@ class Config:
         for category in self.categories.values():
             all_bindings.extend(category.bindings)
         return all_bindings
+
+    def rebuild_index(self) -> None:
+        """Rebuild the binding index from all categories.
+
+        Use this if bindings were added/removed without using add_binding/remove_binding,
+        or to ensure index consistency after deserialization.
+        """
+        self._binding_index.clear()
+        for category in self.categories.values():
+            for binding in category.bindings:
+                self._binding_index[binding.conflict_key] = binding

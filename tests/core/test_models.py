@@ -369,3 +369,45 @@ def test_config_remove_binding_updates_index():
 
     config.remove_binding(binding)
     assert binding.conflict_key not in config._binding_index
+
+
+def test_config_rebuild_index():
+    """Test rebuild_index reconstructs the index from categories."""
+    config = Config()
+
+    # Add bindings normally
+    binding1 = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="Q",
+        description="",
+        action="killactive",
+        params="",
+        submap=None,
+        line_number=1,
+        category="Window",
+    )
+    binding2 = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="W",
+        description="",
+        action="exec",
+        params="thunar",
+        submap=None,
+        line_number=2,
+        category="Apps",
+    )
+
+    config.add_binding(binding1)
+    config.add_binding(binding2)
+
+    # Clear the index manually (simulating corruption)
+    config._binding_index.clear()
+    assert len(config._binding_index) == 0
+
+    # Rebuild should restore it
+    config.rebuild_index()
+    assert len(config._binding_index) == 2
+    assert config.find_conflict(binding1) == binding1
+    assert config.find_conflict(binding2) == binding2
