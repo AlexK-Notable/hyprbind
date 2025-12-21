@@ -145,15 +145,19 @@ class ConfigManager:
                 success=False, message="Config not loaded. Call load() first."
             )
 
-        # Search through categories to find and remove binding
-        for category in self.config.categories.values():
-            if binding in category.bindings:
-                category.bindings.remove(binding)
-                self._dirty = True
-                self._notify_observers()
-                return OperationResult(success=True, message="Binding removed")
+        # Check if binding exists in the appropriate category
+        if binding.category not in self.config.categories:
+            return OperationResult(success=False, message="Binding not found")
 
-        return OperationResult(success=False, message="Binding not found")
+        category = self.config.categories[binding.category]
+        if binding not in category.bindings:
+            return OperationResult(success=False, message="Binding not found")
+
+        # Use Config.remove_binding() to maintain index
+        self.config.remove_binding(binding)
+        self._dirty = True
+        self._notify_observers()
+        return OperationResult(success=True, message="Binding removed")
 
     def update_binding(
         self, old_binding: Binding, new_binding: Binding
