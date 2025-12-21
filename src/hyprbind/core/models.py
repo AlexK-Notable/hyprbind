@@ -94,12 +94,35 @@ class Config:
     submaps: dict[str, List[Binding]] = field(default_factory=dict)
     file_path: Optional[str] = None
     original_content: str = ""
+    _binding_index: dict[tuple, Binding] = field(default_factory=dict, repr=False)
 
     def add_binding(self, binding: Binding) -> None:
-        """Add binding to appropriate category."""
+        """Add binding to appropriate category and update index."""
         if binding.category not in self.categories:
             self.categories[binding.category] = Category(name=binding.category)
         self.categories[binding.category].bindings.append(binding)
+        # Update conflict detection index
+        self._binding_index[binding.conflict_key] = binding
+
+    def remove_binding(self, binding: Binding) -> None:
+        """Remove binding from category and update index."""
+        if binding.category in self.categories:
+            category = self.categories[binding.category]
+            if binding in category.bindings:
+                category.bindings.remove(binding)
+        # Update conflict detection index
+        self._binding_index.pop(binding.conflict_key, None)
+
+    def find_conflict(self, binding: Binding) -> Optional[Binding]:
+        """Find conflicting binding in O(1) time.
+
+        Args:
+            binding: Binding to check for conflicts
+
+        Returns:
+            Conflicting binding if found, None otherwise
+        """
+        return self._binding_index.get(binding.conflict_key)
 
     def get_all_bindings(self) -> List[Binding]:
         """Get flat list of all bindings."""

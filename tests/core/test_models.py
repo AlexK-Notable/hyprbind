@@ -259,3 +259,113 @@ def test_binding_conflict_key_with_submap():
 
     expected_key = (("$mainMod",), "Q", "resize")
     assert binding.conflict_key == expected_key
+
+
+def test_config_binding_index_created():
+    """Test binding index is maintained when adding bindings."""
+    config = Config()
+    binding = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="Q",
+        description="",
+        action="killactive",
+        params="",
+        submap=None,
+        line_number=1,
+        category="Window",
+    )
+
+    config.add_binding(binding)
+
+    # Index should contain the binding
+    assert binding.conflict_key in config._binding_index
+    assert config._binding_index[binding.conflict_key] == binding
+
+
+def test_config_find_conflict_returns_binding():
+    """Test find_conflict returns conflicting binding."""
+    config = Config()
+    existing = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="Q",
+        description="",
+        action="killactive",
+        params="",
+        submap=None,
+        line_number=1,
+        category="Window",
+    )
+
+    config.add_binding(existing)
+
+    new_binding = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="Q",
+        description="",
+        action="exec",
+        params="other",
+        submap=None,
+        line_number=2,
+        category="Apps",
+    )
+
+    conflict = config.find_conflict(new_binding)
+    assert conflict == existing
+
+
+def test_config_find_conflict_returns_none_when_no_conflict():
+    """Test find_conflict returns None when no conflict exists."""
+    config = Config()
+    existing = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="Q",
+        description="",
+        action="killactive",
+        params="",
+        submap=None,
+        line_number=1,
+        category="Window",
+    )
+
+    config.add_binding(existing)
+
+    new_binding = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="W",  # Different key
+        description="",
+        action="exec",
+        params="other",
+        submap=None,
+        line_number=2,
+        category="Apps",
+    )
+
+    conflict = config.find_conflict(new_binding)
+    assert conflict is None
+
+
+def test_config_remove_binding_updates_index():
+    """Test removing binding updates the index."""
+    config = Config()
+    binding = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="Q",
+        description="",
+        action="killactive",
+        params="",
+        submap=None,
+        line_number=1,
+        category="Window",
+    )
+
+    config.add_binding(binding)
+    assert binding.conflict_key in config._binding_index
+
+    config.remove_binding(binding)
+    assert binding.conflict_key not in config._binding_index
