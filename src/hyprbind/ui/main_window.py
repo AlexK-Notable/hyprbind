@@ -11,6 +11,10 @@ from typing import Any, Optional
 import sys
 import threading
 
+from hyprbind.core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 def _get_ui_file_path() -> Path:
     """
@@ -116,7 +120,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Check if Wallust is installed
         if not WallustLoader.is_installed():
-            print("Wallust not installed, using default theme")
+            logger.info("Wallust not installed, using default theme")
             return
 
         # Try to load colors
@@ -125,11 +129,11 @@ class MainWindow(Adw.ApplicationWindow):
             # Apply Wallust colors
             success = self.theme_manager.apply_theme(palette)
             if success:
-                print("Applied Wallust dynamic colors")
+                logger.info("Applied Wallust dynamic colors")
             else:
-                print("Failed to apply Wallust colors, using default theme")
+                logger.warning("Failed to apply Wallust colors, using default theme")
         else:
-            print("No Wallust colors found, using default theme")
+            logger.info("No Wallust colors found, using default theme")
 
     def _setup_chezmoi_banner(self) -> None:
         """Setup the Chezmoi banner and connect its signals."""
@@ -269,9 +273,9 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_config_changed(self) -> None:
         """Observer callback - called when config changes."""
-        # For now, just print notification
+        # For now, just log notification
         # Later tasks will implement tab refresh logic here
-        print("Config changed notification received")
+        logger.debug("Config changed notification received")
 
     def do_close_request(self) -> bool:
         """Handle window close request. Check for unsaved changes.

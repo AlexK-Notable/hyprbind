@@ -17,7 +17,7 @@ def sample_config_path():
 @pytest.fixture
 def manager(sample_config_path):
     """ConfigManager with loaded config."""
-    mgr = ConfigManager(sample_config_path)
+    mgr = ConfigManager(sample_config_path, skip_validation=True)
     mgr.load()
     return mgr
 

@@ -16,7 +16,7 @@ class TestConfigManagerBackupIntegration:
         config_file = tmp_path / "keybinds.conf"
         config_file.write_text("bind = SUPER, A, exec, app")
 
-        manager = ConfigManager(config_path=config_file)
+        manager = ConfigManager(config_path=config_file, skip_validation=True)
         # Use isolated backup directory for this test
         from hyprbind.core.backup_manager import BackupManager
         manager.backup_manager = BackupManager(backup_dir=tmp_path / "backups")
@@ -35,7 +35,7 @@ class TestConfigManagerBackupIntegration:
         """No backup created when saving to new file."""
         config_file = tmp_path / "keybinds.conf"
 
-        manager = ConfigManager(config_path=config_file)
+        manager = ConfigManager(config_path=config_file, skip_validation=True)
         # Use isolated backup directory for this test
         from hyprbind.core.backup_manager import BackupManager
         manager.backup_manager = BackupManager(backup_dir=tmp_path / "backups")
@@ -60,7 +60,7 @@ class TestConfigManagerBackupIntegration:
         config_file = tmp_path / "keybinds.conf"
         config_file.write_text("bind = SUPER, A, exec, app")
 
-        manager = ConfigManager(config_path=config_file)
+        manager = ConfigManager(config_path=config_file, skip_validation=True)
         # Use isolated backup directory for this test
         from hyprbind.core.backup_manager import BackupManager
         manager.backup_manager = BackupManager(backup_dir=tmp_path / "backups")
@@ -90,7 +90,7 @@ class TestConfigManagerBackupIntegration:
         config_file = tmp_path / "keybinds.conf"
         config_file.write_text("bind = SUPER, A, exec, app")
 
-        manager = ConfigManager(config_path=config_file)
+        manager = ConfigManager(config_path=config_file, skip_validation=True)
         # Use isolated backup directory for this test
         from hyprbind.core.backup_manager import BackupManager
         manager.backup_manager = BackupManager(backup_dir=tmp_path / "backups")
@@ -111,7 +111,7 @@ class TestConfigManagerBackupIntegration:
         config_file = tmp_path / "keybinds.conf"
         config_file.write_text("bind = SUPER, A, exec, app")
 
-        manager = ConfigManager(config_path=config_file)
+        manager = ConfigManager(config_path=config_file, skip_validation=True)
         # Use isolated backup directory for this test
         from hyprbind.core.backup_manager import BackupManager
         manager.backup_manager = BackupManager(backup_dir=tmp_path / "backups")
@@ -138,7 +138,7 @@ class TestConfigManagerBackupRestore:
         config_file = tmp_path / "keybinds.conf"
         config_file.write_text("bind = SUPER, A, exec, app")
 
-        manager = ConfigManager(config_path=config_file)
+        manager = ConfigManager(config_path=config_file, skip_validation=True)
         # Use isolated backup directory for this test
         from hyprbind.core.backup_manager import BackupManager
         manager.backup_manager = BackupManager(backup_dir=tmp_path / "backups")
@@ -187,7 +187,7 @@ class TestConfigManagerBackupRestore:
         config_file = tmp_path / "keybinds.conf"
         config_file.write_text("bind = SUPER, A, exec, original")
 
-        manager = ConfigManager(config_path=config_file)
+        manager = ConfigManager(config_path=config_file, skip_validation=True)
         # Use isolated backup directory for this test
         from hyprbind.core.backup_manager import BackupManager
         manager.backup_manager = BackupManager(backup_dir=tmp_path / "backups")
@@ -218,7 +218,7 @@ class TestConfigManagerBackupRestore:
         config_file = tmp_path / "keybinds.conf"
         config_file.write_text("bind = SUPER, A, exec, app")
 
-        manager = ConfigManager(config_path=config_file)
+        manager = ConfigManager(config_path=config_file, skip_validation=True)
         # Use isolated backup directory for this test
         from hyprbind.core.backup_manager import BackupManager
         manager.backup_manager = BackupManager(backup_dir=tmp_path / "backups")
@@ -247,14 +247,14 @@ class TestBackupManagerInstance:
 
     def test_config_manager_has_backup_manager(self, tmp_path):
         """ConfigManager has BackupManager instance."""
-        manager = ConfigManager(config_path=tmp_path / "keybinds.conf")
+        manager = ConfigManager(config_path=tmp_path / "keybinds.conf", skip_validation=True)
 
         assert hasattr(manager, "backup_manager")
         assert manager.backup_manager is not None
 
     def test_backup_manager_uses_default_backup_dir(self, tmp_path):
         """BackupManager uses default .backups directory."""
-        manager = ConfigManager(config_path=tmp_path / "keybinds.conf")
+        manager = ConfigManager(config_path=tmp_path / "keybinds.conf", skip_validation=True)
 
         expected_dir = Path.home() / ".config" / "hypr" / "config" / ".backups"
         assert manager.backup_manager.backup_dir == expected_dir

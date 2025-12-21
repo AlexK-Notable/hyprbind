@@ -17,7 +17,7 @@ def sample_config_path():
 @pytest.fixture
 def manager(sample_config_path):
     """ConfigManager instance with sample config."""
-    return ConfigManager(sample_config_path)
+    return ConfigManager(sample_config_path, skip_validation=True)
 
 
 class TestLoadConfig:
@@ -188,7 +188,7 @@ class TestConfigNotLoaded:
 
     def test_add_binding_without_load(self, sample_config_path):
         """Add binding fails if config not loaded."""
-        manager = ConfigManager(sample_config_path)
+        manager = ConfigManager(sample_config_path, skip_validation=True)
 
         new_binding = Binding(
             type=BindType.BINDD,
@@ -209,7 +209,7 @@ class TestConfigNotLoaded:
 
     def test_remove_binding_without_load(self, sample_config_path):
         """Remove binding fails if config not loaded."""
-        manager = ConfigManager(sample_config_path)
+        manager = ConfigManager(sample_config_path, skip_validation=True)
 
         binding = Binding(
             type=BindType.BINDD,
@@ -230,7 +230,7 @@ class TestConfigNotLoaded:
 
     def test_update_binding_without_load(self, sample_config_path):
         """Update binding fails if config not loaded."""
-        manager = ConfigManager(sample_config_path)
+        manager = ConfigManager(sample_config_path, skip_validation=True)
 
         old_binding = Binding(
             type=BindType.BINDD,
@@ -278,7 +278,7 @@ class TestEdgeCases:
     def test_update_nonexistent_binding(self):
         """Update non-existent binding fails gracefully."""
         fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_keybinds.conf"
-        manager = ConfigManager(config_path=fixture_path)
+        manager = ConfigManager(config_path=fixture_path, skip_validation=True)
         manager.load()
 
         # Create a binding that doesn't exist in the config

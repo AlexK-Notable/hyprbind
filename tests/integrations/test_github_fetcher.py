@@ -158,19 +158,29 @@ bindd = $mainMod, SPACE, App launcher, exec, walker
 
     @patch("urllib.request.urlopen")
     def test_download_config_file_not_found(self, mock_urlopen):
-        """Test downloading non-existent config file."""
+        """Test downloading non-existent config file with valid path pattern."""
         from urllib.error import HTTPError
 
         mock_urlopen.side_effect = HTTPError(
             url="test", code=404, msg="Not Found", hdrs={}, fp=None
         )
 
+        # Use a path that passes validation but doesn't exist
+        result = GitHubFetcher.download_config(
+            self.username, self.repo, ".config/hypr/nonexistent.conf"
+        )
+
+        self.assertFalse(result["success"])
+        self.assertIn("not found", result["message"].lower())
+
+    def test_download_config_invalid_path_rejected(self):
+        """Test that paths not matching config patterns are rejected."""
         result = GitHubFetcher.download_config(
             self.username, self.repo, "nonexistent.conf"
         )
 
         self.assertFalse(result["success"])
-        self.assertIn("not found", result["message"].lower())
+        self.assertIn("doesn't match expected", result["message"].lower())
 
     @patch("urllib.request.urlopen")
     def test_import_to_config_success(self, mock_urlopen):

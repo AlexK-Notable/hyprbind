@@ -3,12 +3,23 @@
 import json
 import base64
 import re
+import ssl
 import urllib.request
 import urllib.error
 from typing import Dict, List, Any
 
 from hyprbind.core.config_manager import ConfigManager, OperationResult
+from hyprbind.core.validators import PathValidator
+from hyprbind.core.logging_config import get_logger
+from hyprbind.core.constants import GITHUB_REQUEST_TIMEOUT
 from hyprbind.parsers.config_parser import ConfigParser
+
+logger = get_logger(__name__)
+
+# Create secure SSL context for HTTPS requests
+# This enforces certificate verification and modern TLS settings
+_ssl_context = ssl.create_default_context()
+_ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
 
 
 class GitHubFetcher:
@@ -62,7 +73,14 @@ class GitHubFetcher:
                 url, headers={"User-Agent": "HyprBind-Config-Importer"}
             )
 
-            with urllib.request.urlopen(req, timeout=10) as response:
+            with urllib.request.urlopen(
+                req, timeout=GITHUB_REQUEST_TIMEOUT, context=_ssl_context
+            ) as response:
+                # Log rate limit info for monitoring
+                remaining = response.headers.get("X-RateLimit-Remaining")
+                if remaining and int(remaining) < 10:
+                    logger.warning("GitHub API rate limit low: %s remaining", remaining)
+
                 data = json.loads(response.read().decode())
                 return {"success": True, "data": data}
 
@@ -187,6 +205,12 @@ class GitHubFetcher:
         Returns:
             Dictionary with success flag and file content or error message
         """
+        # Validate path before fetching to prevent traversal attacks
+        path_error = PathValidator.validate_github_path(path)
+        if path_error:
+            logger.warning("Invalid path rejected: %s (%s)", path, path_error)
+            return {"success": False, "message": path_error}
+
         url = f"{GitHubFetcher.API_BASE}/repos/{username}/{repo}/contents/{path}"
         result = GitHubFetcher._make_request(url)
 
