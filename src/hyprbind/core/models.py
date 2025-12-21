@@ -63,6 +63,16 @@ class Binding:
             and self.submap == other.submap
         )
 
+    @property
+    def conflict_key(self) -> tuple:
+        """Generate hash key for conflict detection.
+
+        Returns:
+            Tuple of (sorted_modifiers, key, submap) for consistent hashing.
+            Modifiers are sorted to ensure 'SHIFT+SUPER' == 'SUPER+SHIFT'.
+        """
+        return (tuple(sorted(self.modifiers)), self.key, self.submap)
+
 
 @dataclass
 class Category:

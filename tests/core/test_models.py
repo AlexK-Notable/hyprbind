@@ -193,3 +193,69 @@ def test_config_get_all_bindings():
     assert len(all_bindings) == 2
     assert binding1 in all_bindings
     assert binding2 in all_bindings
+
+
+def test_binding_conflict_key():
+    """Test conflict_key property generates consistent hash keys."""
+    binding = Binding(
+        type=BindType.BIND,
+        modifiers=["SHIFT", "$mainMod"],  # Note: order varies
+        key="Q",
+        description="",
+        action="killactive",
+        params="",
+        submap=None,
+        line_number=1,
+        category="Window",
+    )
+
+    # Key should be a tuple of (sorted modifiers tuple, key, submap)
+    expected_key = (("$mainMod", "SHIFT"), "Q", None)
+    assert binding.conflict_key == expected_key
+
+
+def test_binding_conflict_key_different_modifier_order():
+    """Test conflict_key is same regardless of modifier order."""
+    binding1 = Binding(
+        type=BindType.BIND,
+        modifiers=["SHIFT", "$mainMod"],
+        key="Q",
+        description="",
+        action="exec",
+        params="",
+        submap=None,
+        line_number=1,
+        category="Window",
+    )
+
+    binding2 = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod", "SHIFT"],  # Different order
+        key="Q",
+        description="",
+        action="killactive",
+        params="",
+        submap=None,
+        line_number=2,
+        category="Window",
+    )
+
+    assert binding1.conflict_key == binding2.conflict_key
+
+
+def test_binding_conflict_key_with_submap():
+    """Test conflict_key includes submap."""
+    binding = Binding(
+        type=BindType.BIND,
+        modifiers=["$mainMod"],
+        key="Q",
+        description="",
+        action="exec",
+        params="",
+        submap="resize",
+        line_number=1,
+        category="Window",
+    )
+
+    expected_key = (("$mainMod",), "Q", "resize")
+    assert binding.conflict_key == expected_key
