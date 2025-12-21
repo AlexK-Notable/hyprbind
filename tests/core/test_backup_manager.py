@@ -19,7 +19,7 @@ class TestBackupCreation:
         config_file.write_text("bind = SUPER, A, exec, app")
 
         manager = BackupManager(backup_dir=tmp_path / "backups")
-        backup_path = manager.create_backup(config_file)
+        backup_path = manager.create_backup(config_file, skip_validation=True)
 
         # Check backup exists
         assert backup_path.exists()
@@ -48,7 +48,7 @@ class TestBackupCreation:
         config_file.write_text(original_content)
 
         manager = BackupManager(backup_dir=tmp_path / "backups")
-        backup_path = manager.create_backup(config_file)
+        backup_path = manager.create_backup(config_file, skip_validation=True)
 
         assert backup_path.read_text() == original_content
 
@@ -61,7 +61,7 @@ class TestBackupCreation:
         assert not backup_dir.exists()
 
         manager = BackupManager(backup_dir=backup_dir)
-        backup_path = manager.create_backup(config_file)
+        backup_path = manager.create_backup(config_file, skip_validation=True)
 
         assert backup_dir.exists()
         assert backup_path.exists()
@@ -72,7 +72,7 @@ class TestBackupCreation:
         manager = BackupManager(backup_dir=tmp_path / "backups")
 
         with pytest.raises(FileNotFoundError):
-            manager.create_backup(tmp_path / "nonexistent.conf")
+            manager.create_backup(tmp_path / "nonexistent.conf", skip_validation=True)
 
     def test_multiple_backups_have_different_timestamps(self, tmp_path):
         """Sequential backups get different timestamps."""
@@ -81,9 +81,9 @@ class TestBackupCreation:
 
         manager = BackupManager(backup_dir=tmp_path / "backups")
 
-        backup1 = manager.create_backup(config_file)
+        backup1 = manager.create_backup(config_file, skip_validation=True)
         time.sleep(1.1)  # Ensure different second
-        backup2 = manager.create_backup(config_file)
+        backup2 = manager.create_backup(config_file, skip_validation=True)
 
         assert backup1 != backup2
         assert backup1.exists()
@@ -110,11 +110,11 @@ class TestListBackups:
         manager = BackupManager(backup_dir=tmp_path / "backups")
 
         # Create 3 backups
-        backup1 = manager.create_backup(config_file)
+        backup1 = manager.create_backup(config_file, skip_validation=True)
         time.sleep(1.1)
-        backup2 = manager.create_backup(config_file)
+        backup2 = manager.create_backup(config_file, skip_validation=True)
         time.sleep(1.1)
-        backup3 = manager.create_backup(config_file)
+        backup3 = manager.create_backup(config_file, skip_validation=True)
 
         backups = manager.list_backups(config_file)
 
@@ -131,7 +131,7 @@ class TestListBackups:
         config_file.write_text(content)
 
         manager = BackupManager(backup_dir=tmp_path / "backups")
-        backup_path = manager.create_backup(config_file)
+        backup_path = manager.create_backup(config_file, skip_validation=True)
 
         backups = manager.list_backups(config_file)
 
@@ -153,8 +153,8 @@ class TestListBackups:
 
         manager = BackupManager(backup_dir=tmp_path / "backups")
 
-        backup1 = manager.create_backup(config1)
-        backup2 = manager.create_backup(config2)
+        backup1 = manager.create_backup(config1, skip_validation=True)
+        backup2 = manager.create_backup(config2, skip_validation=True)
 
         keybind_backups = manager.list_backups(config1)
         monitor_backups = manager.list_backups(config2)
@@ -175,7 +175,7 @@ class TestListBackups:
         manager = BackupManager(backup_dir=backup_dir)
 
         # Create real backup
-        real_backup = manager.create_backup(config_file)
+        real_backup = manager.create_backup(config_file, skip_validation=True)
 
         # Create fake files that should be ignored
         (backup_dir / "keybinds.conf.txt").write_text("not a backup")
@@ -197,13 +197,13 @@ class TestRestoreBackup:
         config_file.write_text("original content")
 
         manager = BackupManager(backup_dir=tmp_path / "backups")
-        backup_path = manager.create_backup(config_file)
+        backup_path = manager.create_backup(config_file, skip_validation=True)
 
         # Modify original
         config_file.write_text("modified content")
 
         # Restore
-        manager.restore_backup(backup_path, config_file)
+        manager.restore_backup(backup_path, config_file, skip_validation=True)
 
         assert config_file.read_text() == "original content"
 
@@ -213,14 +213,14 @@ class TestRestoreBackup:
         config_file.write_text("content")
 
         manager = BackupManager(backup_dir=tmp_path / "backups")
-        backup_path = manager.create_backup(config_file)
+        backup_path = manager.create_backup(config_file, skip_validation=True)
 
         # Delete original
         config_file.unlink()
         assert not config_file.exists()
 
         # Restore
-        manager.restore_backup(backup_path, config_file)
+        manager.restore_backup(backup_path, config_file, skip_validation=True)
 
         assert config_file.exists()
         assert config_file.read_text() == "content"
@@ -231,7 +231,8 @@ class TestRestoreBackup:
 
         with pytest.raises(FileNotFoundError):
             manager.restore_backup(
-                tmp_path / "backups" / "fake.backup", tmp_path / "target.conf"
+                tmp_path / "backups" / "fake.backup", tmp_path / "target.conf",
+                skip_validation=True
             )
 
     def test_restore_backup_creates_target_dir_if_needed(self, tmp_path):
@@ -240,13 +241,13 @@ class TestRestoreBackup:
         config_file.write_text("content")
 
         manager = BackupManager(backup_dir=tmp_path / "backups")
-        backup_path = manager.create_backup(config_file)
+        backup_path = manager.create_backup(config_file, skip_validation=True)
 
         # Restore to new location
         new_location = tmp_path / "new" / "nested" / "keybinds.conf"
         assert not new_location.parent.exists()
 
-        manager.restore_backup(backup_path, new_location)
+        manager.restore_backup(backup_path, new_location, skip_validation=True)
 
         assert new_location.exists()
         assert new_location.read_text() == "content"
@@ -265,7 +266,7 @@ class TestCleanupOldBackups:
         # Create 5 backups
         backups = []
         for i in range(5):
-            backup = manager.create_backup(config_file)
+            backup = manager.create_backup(config_file, skip_validation=True)
             backups.append(backup)
             time.sleep(1.1)
 
@@ -293,9 +294,9 @@ class TestCleanupOldBackups:
         manager = BackupManager(backup_dir=tmp_path / "backups")
 
         # Create only 2 backups
-        backup1 = manager.create_backup(config_file)
+        backup1 = manager.create_backup(config_file, skip_validation=True)
         time.sleep(1.1)
-        backup2 = manager.create_backup(config_file)
+        backup2 = manager.create_backup(config_file, skip_validation=True)
 
         # Try to keep 5
         deleted_count = manager.cleanup_old_backups(config_file, keep=5)
@@ -327,8 +328,8 @@ class TestCleanupOldBackups:
         monitor_backups = []
 
         for i in range(5):
-            keybind_backups.append(manager.create_backup(config1))
-            monitor_backups.append(manager.create_backup(config2))
+            keybind_backups.append(manager.create_backup(config1, skip_validation=True))
+            monitor_backups.append(manager.create_backup(config2, skip_validation=True))
             time.sleep(1.1)
 
         # Cleanup only keybinds, keep 2

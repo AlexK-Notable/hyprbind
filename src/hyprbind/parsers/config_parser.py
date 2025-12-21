@@ -5,25 +5,40 @@ from pathlib import Path
 from typing import Optional
 
 from hyprbind.core.models import Config, Category
+from hyprbind.core.validators import PathValidator
+from hyprbind.core.logging_config import get_logger
 from hyprbind.parsers.binding_parser import BindingParser
 from hyprbind.parsers.variable_resolver import VariableResolver
+
+logger = get_logger(__name__)
 
 
 class ConfigParser:
     """Parse Hyprland keybindings configuration files."""
 
     @staticmethod
-    def parse_file(file_path: Path) -> Config:
+    def parse_file(file_path: Path, skip_validation: bool = False) -> Config:
         """
         Parse a keybinds.conf file into a Config object.
 
         Args:
             file_path: Path to keybinds.conf
+            skip_validation: Skip path validation (for testing with tmp paths)
 
         Returns:
             Config object with parsed bindings
+
+        Raises:
+            ValueError: If path fails security validation
         """
         config = Config(file_path=str(file_path))
+
+        # Validate path is within allowed directories
+        if not skip_validation:
+            path_error = PathValidator.validate_local_path(file_path)
+            if path_error:
+                logger.warning("Path validation failed: %s (%s)", file_path, path_error)
+                raise ValueError(path_error)
 
         if not file_path.exists():
             return config

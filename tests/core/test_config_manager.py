@@ -17,7 +17,7 @@ def sample_config_path():
 @pytest.fixture
 def manager(sample_config_path):
     """ConfigManager instance with sample config."""
-    return ConfigManager(sample_config_path)
+    return ConfigManager(sample_config_path, skip_validation=True)
 
 
 class TestLoadConfig:
@@ -188,7 +188,7 @@ class TestConfigNotLoaded:
 
     def test_add_binding_without_load(self, sample_config_path):
         """Add binding fails if config not loaded."""
-        manager = ConfigManager(sample_config_path)
+        manager = ConfigManager(sample_config_path, skip_validation=True)
 
         new_binding = Binding(
             type=BindType.BINDD,
@@ -209,7 +209,7 @@ class TestConfigNotLoaded:
 
     def test_remove_binding_without_load(self, sample_config_path):
         """Remove binding fails if config not loaded."""
-        manager = ConfigManager(sample_config_path)
+        manager = ConfigManager(sample_config_path, skip_validation=True)
 
         binding = Binding(
             type=BindType.BINDD,
@@ -230,7 +230,7 @@ class TestConfigNotLoaded:
 
     def test_update_binding_without_load(self, sample_config_path):
         """Update binding fails if config not loaded."""
-        manager = ConfigManager(sample_config_path)
+        manager = ConfigManager(sample_config_path, skip_validation=True)
 
         old_binding = Binding(
             type=BindType.BINDD,
@@ -272,13 +272,88 @@ class TestDefaultPath:
         assert manager.config_path == expected_path
 
 
+class TestBindingIndexMaintenance:
+    """Test that ConfigManager properly maintains binding index."""
+
+    def test_remove_then_add_same_key_combo(self, manager):
+        """After removing binding, same key combo can be re-added (index updated)."""
+        manager.load()
+
+        # Get an existing binding
+        bindings = manager.config.get_all_bindings()
+        original_binding = bindings[0]
+        key_combo = (original_binding.modifiers, original_binding.key)
+
+        # Remove it
+        result = manager.remove_binding(original_binding)
+        assert result.success is True
+
+        # Create new binding with same key combo
+        new_binding = Binding(
+            type=BindType.BINDD,
+            modifiers=original_binding.modifiers,
+            key=original_binding.key,
+            description="Replaced binding",
+            action="exec",
+            params="replacement-action",
+            submap=original_binding.submap,
+            line_number=0,
+            category="Test",
+        )
+
+        # Should succeed because index was updated on removal
+        result = manager.add_binding(new_binding)
+        assert result.success is True, f"Expected success but got: {result.message}"
+        assert new_binding in manager.config.get_all_bindings()
+
+    def test_update_binding_maintains_index(self, manager):
+        """Update binding properly updates index for conflict detection."""
+        manager.load()
+
+        bindings = manager.config.get_all_bindings()
+        old_binding = bindings[0]
+
+        # Create new binding with different key
+        new_binding = Binding(
+            type=old_binding.type,
+            modifiers=old_binding.modifiers,
+            key="F9",  # Different key
+            description="Updated",
+            action=old_binding.action,
+            params=old_binding.params,
+            submap=old_binding.submap,
+            line_number=old_binding.line_number,
+            category=old_binding.category,
+        )
+
+        # Update the binding
+        result = manager.update_binding(old_binding, new_binding)
+        assert result.success is True
+
+        # Now the old key combo should be available
+        replacement = Binding(
+            type=BindType.BINDD,
+            modifiers=old_binding.modifiers,
+            key=old_binding.key,  # Same key as original
+            description="Using freed key combo",
+            action="exec",
+            params="new-action",
+            submap=old_binding.submap,
+            line_number=0,
+            category="Test",
+        )
+
+        result = manager.add_binding(replacement)
+        assert result.success is True, f"Expected success but got: {result.message}"
+
+
 class TestEdgeCases:
     """Test edge cases and error conditions."""
 
     def test_update_nonexistent_binding(self):
         """Update non-existent binding fails gracefully."""
         fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_keybinds.conf"
-        manager = ConfigManager(config_path=fixture_path)
+        manager = ConfigManager(config_path=fixture_path, skip_validation=True)
         manager.load()
 
         # Create a binding that doesn't exist in the config

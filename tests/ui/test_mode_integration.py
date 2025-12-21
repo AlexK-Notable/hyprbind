@@ -38,11 +38,11 @@ def main_window(app, temp_config_file):
     """Create MainWindow instance with loaded config."""
     from hyprbind.core.config_manager import ConfigManager
 
-    # Patch ConfigManager to use temp config
+    # Patch ConfigManager to use temp config with skip_validation for tmp paths
     original_init = ConfigManager.__init__
 
-    def patched_init(cm_self, cm_config_path=None):
-        original_init(cm_self, config_path=temp_config_file)
+    def patched_init(cm_self, cm_config_path=None, skip_validation=False):
+        original_init(cm_self, config_path=temp_config_file, skip_validation=True)
 
     ConfigManager.__init__ = patched_init
 

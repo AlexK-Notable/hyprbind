@@ -1,17 +1,22 @@
 """Detect keybinding conflicts."""
 
-from typing import List
+from typing import List, Optional
 
 from hyprbind.core.models import Binding, Config
 
 
 class ConflictDetector:
-    """Detect conflicts between keybindings."""
+    """Detect conflicts between keybindings.
+
+    Uses O(1) hash-based index lookup for efficient conflict detection.
+    """
 
     @staticmethod
     def check(binding: Binding, config: Config) -> List[Binding]:
         """
         Check if binding conflicts with existing bindings.
+
+        Uses O(1) hash index lookup via config.find_conflict().
 
         Args:
             binding: New binding to check
@@ -20,13 +25,8 @@ class ConflictDetector:
         Returns:
             List of conflicting bindings (empty if no conflicts)
         """
-        conflicts = []
-
-        for existing in config.get_all_bindings():
-            if binding.conflicts_with(existing):
-                conflicts.append(existing)
-
-        return conflicts
+        conflict = config.find_conflict(binding)
+        return [conflict] if conflict else []
 
     @staticmethod
     def has_conflicts(binding: Binding, config: Config) -> bool:
@@ -40,4 +40,4 @@ class ConflictDetector:
         Returns:
             True if conflicts exist
         """
-        return len(ConflictDetector.check(binding, config)) > 0
+        return config.find_conflict(binding) is not None

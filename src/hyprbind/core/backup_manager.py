@@ -3,8 +3,14 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import shutil
+
+from hyprbind.core.logging_config import get_logger
+from hyprbind.core.validators import PathValidator
+from hyprbind.core.constants import BACKUP_KEEP_COUNT
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -34,19 +40,30 @@ class BackupManager:
 
         self.backup_dir = backup_dir
 
-    def create_backup(self, config_path: Path) -> Path:
+    def create_backup(
+        self, config_path: Path, skip_validation: bool = False
+    ) -> Path:
         """
         Create a timestamped backup of a config file.
 
         Args:
             config_path: Path to config file to backup
+            skip_validation: Skip path validation (for testing)
 
         Returns:
             Path to created backup file
 
         Raises:
+            ValueError: If path fails security validation
             FileNotFoundError: If config_path doesn't exist
         """
+        # Validate source path
+        if not skip_validation:
+            path_error = PathValidator.validate_local_path(config_path)
+            if path_error:
+                logger.warning("Backup source path validation failed: %s (%s)", config_path, path_error)
+                raise ValueError(path_error)
+
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
 
@@ -118,19 +135,30 @@ class BackupManager:
 
         return backups
 
-    def restore_backup(self, backup_path: Path, target_path: Path) -> None:
+    def restore_backup(
+        self, backup_path: Path, target_path: Path, skip_validation: bool = False
+    ) -> None:
         """
         Restore a backup to the target location.
 
         Args:
             backup_path: Path to backup file
             target_path: Path where file should be restored
+            skip_validation: Skip path validation (for testing)
 
         Raises:
+            ValueError: If target path fails security validation
             FileNotFoundError: If backup_path doesn't exist
         """
         if not backup_path.exists():
             raise FileNotFoundError(f"Backup file not found: {backup_path}")
+
+        # Validate target path before restoring
+        if not skip_validation:
+            path_error = PathValidator.validate_write_path(target_path)
+            if path_error:
+                logger.warning("Restore target path validation failed: %s (%s)", target_path, path_error)
+                raise ValueError(path_error)
 
         # Ensure target directory exists
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -138,13 +166,13 @@ class BackupManager:
         # Copy backup to target location
         shutil.copy2(backup_path, target_path)
 
-    def cleanup_old_backups(self, config_path: Path, keep: int = 5) -> int:
+    def cleanup_old_backups(self, config_path: Path, keep: int = BACKUP_KEEP_COUNT) -> int:
         """
         Delete old backups, keeping only the N most recent.
 
         Args:
             config_path: Path to config file
-            keep: Number of backups to keep (default: 5)
+            keep: Number of backups to keep (default: BACKUP_KEEP_COUNT)
 
         Returns:
             Number of backups deleted

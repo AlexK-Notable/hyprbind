@@ -6,7 +6,10 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
 from gi.repository import Gtk, Gio, GObject, Adw
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Callable
+
+from hyprbind.integrations.github_fetcher import GitHubFetcher
+from hyprbind.core.config_manager import ConfigManager
 
 
 class ProfileItem(GObject.Object):
@@ -43,9 +46,15 @@ class ProfileItem(GObject.Object):
 class CommunityTab(Gtk.Box):
     """Tab for discovering and importing popular Hyprland configurations."""
 
-    def __init__(self) -> None:
-        """Initialize community tab."""
+    def __init__(self, config_manager: Optional[ConfigManager] = None) -> None:
+        """Initialize community tab.
+
+        Args:
+            config_manager: ConfigManager for importing configs (optional for testing)
+        """
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.config_manager = config_manager
+        self._loading = False
 
         # Popular Hyprland configurations from the community
         self.profiles: List[Dict[str, Any]] = [
@@ -156,7 +165,7 @@ class CommunityTab(Gtk.Box):
 
         content.append(description_group)
 
-        # Import button
+        # Import button with loading spinner
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         button_box.set_halign(Gtk.Align.START)
         button_box.set_spacing(12)
@@ -166,6 +175,17 @@ class CommunityTab(Gtk.Box):
         self.import_button.set_sensitive(False)  # Disabled initially
         self.import_button.connect("clicked", self._on_import_clicked)
         button_box.append(self.import_button)
+
+        # Loading spinner (hidden initially)
+        self.loading_spinner = Gtk.Spinner()
+        self.loading_spinner.set_visible(False)
+        button_box.append(self.loading_spinner)
+
+        # Status label for import progress
+        self.status_label = Gtk.Label()
+        self.status_label.set_xalign(0)
+        self.status_label.add_css_class("dim-label")
+        button_box.append(self.status_label)
 
         content.append(button_box)
 
@@ -274,6 +294,22 @@ class CommunityTab(Gtk.Box):
             self.import_button.set_sensitive(False)
             self.description_label.set_markup("<i>No profile selected</i>")
 
+    def _set_loading(self, loading: bool, status: str = "") -> None:
+        """Set loading state for UI.
+
+        Args:
+            loading: Whether loading is in progress
+            status: Status message to display
+        """
+        self._loading = loading
+        self.import_button.set_sensitive(not loading and self.selection_model.get_selected_item() is not None)
+        self.loading_spinner.set_visible(loading)
+        if loading:
+            self.loading_spinner.start()
+        else:
+            self.loading_spinner.stop()
+        self.status_label.set_text(status)
+
     def _on_import_clicked(self, button: Gtk.Button) -> None:
         """Handle import button click.
 
@@ -282,18 +318,160 @@ class CommunityTab(Gtk.Box):
         """
         selected_item = self.selection_model.get_selected_item()
 
-        if not selected_item:
+        if not selected_item or self._loading:
             return
 
-        # Show "coming soon" dialog
-        dialog = Adw.MessageDialog.new(self.get_root())
-        dialog.set_heading("Feature Coming Soon")
-        dialog.set_body(
-            f"GitHub configuration import for {selected_item.username}/{selected_item.repo} "
-            f"will be implemented in Phase 6.\n\n"
-            f"This will use Firecrawl MCP integration to automatically fetch "
-            f"and parse Hyprland configurations from GitHub repositories."
+        # Check if config_manager is available
+        if not self.config_manager:
+            self._show_error("Configuration manager not available")
+            return
+
+        # Start async config file discovery
+        self._set_loading(True, "Finding config files...")
+
+        GitHubFetcher.find_config_files_async(
+            selected_item.username,
+            selected_item.repo,
+            lambda result: self._on_config_files_found(result, selected_item),
         )
+
+    def _on_config_files_found(self, result: Dict[str, Any], profile: ProfileItem) -> None:
+        """Handle config files discovery result.
+
+        Args:
+            result: Result from GitHubFetcher.find_config_files_async
+            profile: The profile being imported
+        """
+        if not result["success"]:
+            self._set_loading(False)
+            self._show_error(f"Failed to find config files: {result['message']}")
+            return
+
+        config_files = result.get("files", [])
+
+        if not config_files:
+            self._set_loading(False)
+            self._show_error("No Hyprland config files found in this repository")
+            return
+
+        # If only one file, download it directly
+        if len(config_files) == 1:
+            self._download_config(profile, config_files[0])
+            return
+
+        # Multiple files - show selection dialog
+        self._set_loading(False)
+        self._show_file_selection_dialog(profile, config_files)
+
+    def _show_file_selection_dialog(
+        self, profile: ProfileItem, config_files: List[str]
+    ) -> None:
+        """Show dialog to select which config file to import.
+
+        Args:
+            profile: The profile being imported
+            config_files: List of available config file paths
+        """
+        dialog = Adw.MessageDialog.new(self.get_root())
+        dialog.set_heading("Select Config File")
+        dialog.set_body(
+            f"Found {len(config_files)} config file(s) in {profile.username}/{profile.repo}.\n"
+            "Select the file to import:"
+        )
+
+        # Add a response for each file
+        for i, path in enumerate(config_files[:5]):  # Limit to 5 files
+            response_id = f"file_{i}"
+            # Show just the filename for cleaner display
+            filename = path.split("/")[-1]
+            dialog.add_response(response_id, filename)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.set_response_appearance("cancel", Adw.ResponseAppearance.DESTRUCTIVE)
+
+        def on_response(dialog, response):
+            if response.startswith("file_"):
+                index = int(response.split("_")[1])
+                self._download_config(profile, config_files[index])
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _download_config(self, profile: ProfileItem, path: str) -> None:
+        """Download and import a config file.
+
+        Args:
+            profile: The profile to download from
+            path: Path to the config file
+        """
+        self._set_loading(True, f"Downloading {path.split('/')[-1]}...")
+
+        GitHubFetcher.download_config_async(
+            profile.username,
+            profile.repo,
+            path,
+            lambda result: self._on_config_downloaded(result, profile, path),
+        )
+
+    def _on_config_downloaded(
+        self, result: Dict[str, Any], profile: ProfileItem, path: str
+    ) -> None:
+        """Handle config download result.
+
+        Args:
+            result: Result from GitHubFetcher.download_config_async
+            profile: The profile being imported
+            path: Path of the downloaded file
+        """
+        if not result["success"]:
+            self._set_loading(False)
+            self._show_error(f"Failed to download config: {result['message']}")
+            return
+
+        content = result.get("content", "")
+        if not content:
+            self._set_loading(False)
+            self._show_error("Downloaded config file is empty")
+            return
+
+        self._set_loading(True, "Importing bindings...")
+
+        # Import the config content
+        import_result = GitHubFetcher.import_to_config(content, self.config_manager)
+
+        self._set_loading(False)
+
+        if import_result.success:
+            self._show_success(
+                f"Import Complete",
+                f"{import_result.message}\n\n"
+                f"Source: {profile.username}/{profile.repo}/{path.split('/')[-1]}"
+            )
+        else:
+            self._show_error(f"Import failed: {import_result.message}")
+
+    def _show_error(self, message: str) -> None:
+        """Show error dialog.
+
+        Args:
+            message: Error message to display
+        """
+        dialog = Adw.MessageDialog.new(self.get_root())
+        dialog.set_heading("Import Error")
+        dialog.set_body(message)
+        dialog.add_response("ok", "OK")
+        dialog.present()
+
+    def _show_success(self, heading: str, message: str) -> None:
+        """Show success dialog.
+
+        Args:
+            heading: Dialog heading
+            message: Success message to display
+        """
+        dialog = Adw.MessageDialog.new(self.get_root())
+        dialog.set_heading(heading)
+        dialog.set_body(message)
         dialog.add_response("ok", "OK")
         dialog.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
         dialog.present()

@@ -100,6 +100,12 @@ class ModeManager:
             return self.config_manager.add_binding(binding)
         elif action == "remove":
             return self.config_manager.remove_binding(binding)
+        else:
+            # Defensive: parent should validate, but handle gracefully
+            return OperationResult(
+                success=False,
+                message=f"Unknown action: {action}. Expected 'add' or 'remove'."
+            )
 
     def _apply_live(self, binding: Binding, action: str) -> OperationResult:
         """

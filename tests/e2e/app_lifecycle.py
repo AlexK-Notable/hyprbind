@@ -66,9 +66,9 @@ def launch_app(config_path: Path) -> Tuple[Adw.Application, 'MainWindow']:
     # so we need to inject the test path BEFORE MainWindow is created
     original_init = ConfigManager.__init__
 
-    def patched_init(cm_self, cm_config_path=None):
-        # Always use test config path, ignoring any passed argument
-        original_init(cm_self, config_path=config_path)
+    def patched_init(cm_self, cm_config_path=None, skip_validation=False):
+        # Always use test config path with skip_validation for tmp_path
+        original_init(cm_self, config_path=config_path, skip_validation=True)
 
     ConfigManager.__init__ = patched_init
 

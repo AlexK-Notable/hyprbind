@@ -8,7 +8,7 @@ def test_parse_config_file():
     """Test parsing complete config file."""
     fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_keybinds.conf"
 
-    config = ConfigParser.parse_file(fixture_path)
+    config = ConfigParser.parse_file(fixture_path, skip_validation=True)
 
     assert config is not None
     assert len(config.get_all_bindings()) > 0
@@ -18,7 +18,7 @@ def test_parse_config_categorizes_bindings():
     """Test that bindings are properly categorized."""
     fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_keybinds.conf"
 
-    config = ConfigParser.parse_file(fixture_path)
+    config = ConfigParser.parse_file(fixture_path, skip_validation=True)
 
     # Should have Window Actions category
     assert "Window Actions" in config.categories
@@ -30,7 +30,7 @@ def test_parse_config_preserves_line_numbers():
     """Test that line numbers are tracked."""
     fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_keybinds.conf"
 
-    config = ConfigParser.parse_file(fixture_path)
+    config = ConfigParser.parse_file(fixture_path, skip_validation=True)
 
     bindings = config.get_all_bindings()
     # All bindings should have line numbers
@@ -62,7 +62,7 @@ def test_parse_nonexistent_file():
     """Test handling of non-existent config file."""
     non_existent = Path("/tmp/nonexistent_hyprbind_test_12345.conf")
 
-    config = ConfigParser.parse_file(non_existent)
+    config = ConfigParser.parse_file(non_existent, skip_validation=True)
 
     assert len(config.get_all_bindings()) == 0
     assert config.file_path == str(non_existent)
@@ -73,7 +73,7 @@ def test_parse_file_loads_variables():
     """Test that variables are loaded from config directory."""
     fixture_path = Path(__file__).parent.parent / "fixtures" / "sample_keybinds.conf"
 
-    config = ConfigParser.parse_file(fixture_path)
+    config = ConfigParser.parse_file(fixture_path, skip_validation=True)
 
     # Variables should be loaded from variables.conf and defaults.conf in fixtures dir
     assert isinstance(config.variables, dict)

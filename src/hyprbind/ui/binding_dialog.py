@@ -11,6 +11,8 @@ from typing import Optional
 from hyprbind.core.config_manager import ConfigManager
 from hyprbind.core.mode_manager import ModeManager, Mode
 from hyprbind.core.models import Binding, BindType
+from hyprbind.core.sanitizers import IPCSanitizer
+from hyprbind.core.constants import is_valid_modifier
 
 
 class BindingDialog(Adw.Window):
@@ -214,20 +216,41 @@ class BindingDialog(Adw.Window):
         Returns:
             Error message if validation fails, None otherwise
         """
-        if not self.key_entry.get_text().strip():
+        key_text = self.key_entry.get_text().strip()
+        action_text = self.action_entry.get_text().strip()
+        description_text = self.description_entry.get_text()
+        params_text = self.params_entry.get_text()
+
+        if not key_text:
             return "Key cannot be empty"
 
-        if not self.action_entry.get_text().strip():
+        if not action_text:
             return "Action cannot be empty"
+
+        # Validate for control characters (IPC security)
+        if error := IPCSanitizer.validate(key_text, "Key"):
+            return error
+        if error := IPCSanitizer.validate(action_text, "Action"):
+            return error
+        if description_text:
+            if error := IPCSanitizer.validate(description_text, "Description"):
+                return error
+        if params_text:
+            if error := IPCSanitizer.validate(params_text, "Parameters"):
+                return error
 
         # Validate modifiers
         mod_text = self.modifiers_entry.get_text()
         if mod_text:
             mods = [m.strip() for m in mod_text.split(",")]
-            valid_mods = ["SUPER", "SHIFT", "ALT", "CTRL", "$mainMod", "$shiftMod"]
             for mod in mods:
-                if mod and mod not in valid_mods and not mod.startswith("$"):
-                    return f"Invalid modifier: {mod}"
+                if mod:
+                    # Check modifiers for control characters
+                    if error := IPCSanitizer.validate(mod, "Modifier"):
+                        return error
+                    # Check modifier is valid (uses centralized constants)
+                    if not is_valid_modifier(mod):
+                        return f"Invalid modifier: {mod}"
 
         return None
 

@@ -7,6 +7,9 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Gdk
 
 from hyprbind.theming.wallust_loader import ColorPalette
+from hyprbind.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class ThemeManager:
@@ -127,7 +130,7 @@ class ThemeManager:
             return True
 
         except Exception as e:
-            print(f"Failed to apply theme: {e}")
+            logger.error("Failed to apply theme: %s", e)
             return False
 
     def _apply_default_theme(self) -> bool:

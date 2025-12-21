@@ -8,7 +8,11 @@ from hyprbind.core.backup_manager import BackupManager, BackupInfo
 from hyprbind.core.conflict_detector import ConflictDetector
 from hyprbind.core.config_writer import ConfigWriter
 from hyprbind.core.models import Binding, Config
+from hyprbind.core.constants import BACKUP_KEEP_COUNT
+from hyprbind.core.logging_config import get_logger
 from hyprbind.parsers.config_parser import ConfigParser
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -23,12 +27,15 @@ class OperationResult:
 class ConfigManager:
     """Manage Hyprland keybinding configurations."""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(
+        self, config_path: Optional[Path] = None, skip_validation: bool = False
+    ):
         """
         Initialize ConfigManager.
 
         Args:
             config_path: Path to keybinds.conf (defaults to ~/.config/hypr/config/keybinds.conf)
+            skip_validation: Skip path validation (for testing with tmp paths)
         """
         if config_path is None:
             config_path = Path.home() / ".config" / "hypr" / "config" / "keybinds.conf"
@@ -37,6 +44,7 @@ class ConfigManager:
         self.config: Optional[Config] = None
         self._observers: List[Callable[[], None]] = []
         self._dirty = False
+        self._skip_validation = skip_validation
         self.backup_manager = BackupManager()
 
     def add_observer(self, callback: Callable[[], None]) -> None:
@@ -66,7 +74,7 @@ class ConfigManager:
                 observer()
             except Exception as e:
                 # Log error but don't break other observers
-                print(f"Observer error: {e}")
+                logger.warning("Observer error: %s", e)
 
     def is_dirty(self) -> bool:
         """
@@ -84,7 +92,9 @@ class ConfigManager:
         Returns:
             Loaded Config object
         """
-        self.config = ConfigParser.parse_file(self.config_path)
+        self.config = ConfigParser.parse_file(
+            self.config_path, skip_validation=self._skip_validation
+        )
         self._dirty = False
         self._notify_observers()
         return self.config
@@ -135,15 +145,19 @@ class ConfigManager:
                 success=False, message="Config not loaded. Call load() first."
             )
 
-        # Search through categories to find and remove binding
-        for category in self.config.categories.values():
-            if binding in category.bindings:
-                category.bindings.remove(binding)
-                self._dirty = True
-                self._notify_observers()
-                return OperationResult(success=True, message="Binding removed")
+        # Check if binding exists in the appropriate category
+        if binding.category not in self.config.categories:
+            return OperationResult(success=False, message="Binding not found")
 
-        return OperationResult(success=False, message="Binding not found")
+        category = self.config.categories[binding.category]
+        if binding not in category.bindings:
+            return OperationResult(success=False, message="Binding not found")
+
+        # Use Config.remove_binding() to maintain index
+        self.config.remove_binding(binding)
+        self._dirty = True
+        self._notify_observers()
+        return OperationResult(success=True, message="Binding removed")
 
     def update_binding(
         self, old_binding: Binding, new_binding: Binding
@@ -209,11 +223,15 @@ class ConfigManager:
         try:
             # Create timestamped backup before writing
             if target_path.exists():
-                self.backup_manager.create_backup(target_path)
-                # Also cleanup old backups, keeping last 5
-                self.backup_manager.cleanup_old_backups(target_path, keep=5)
+                self.backup_manager.create_backup(
+                    target_path, skip_validation=self._skip_validation
+                )
+                # Also cleanup old backups, keeping last BACKUP_KEEP_COUNT
+                self.backup_manager.cleanup_old_backups(target_path, keep=BACKUP_KEEP_COUNT)
 
-            ConfigWriter.write_file(self.config, target_path)
+            ConfigWriter.write_file(
+                self.config, target_path, skip_validation=self._skip_validation
+            )
             self._dirty = False
             return OperationResult(
                 success=True,
@@ -246,7 +264,10 @@ class ConfigManager:
         """
         try:
             # Restore the backup
-            self.backup_manager.restore_backup(backup_info.path, self.config_path)
+            self.backup_manager.restore_backup(
+                backup_info.path, self.config_path,
+                skip_validation=self._skip_validation
+            )
 
             # Reload the config
             self.load()

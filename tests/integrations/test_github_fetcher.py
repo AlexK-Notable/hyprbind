@@ -4,6 +4,8 @@ import unittest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import json
+import threading
+import time
 
 from hyprbind.integrations.github_fetcher import GitHubFetcher
 from hyprbind.core.config_manager import ConfigManager, OperationResult
@@ -158,19 +160,29 @@ bindd = $mainMod, SPACE, App launcher, exec, walker
 
     @patch("urllib.request.urlopen")
     def test_download_config_file_not_found(self, mock_urlopen):
-        """Test downloading non-existent config file."""
+        """Test downloading non-existent config file with valid path pattern."""
         from urllib.error import HTTPError
 
         mock_urlopen.side_effect = HTTPError(
             url="test", code=404, msg="Not Found", hdrs={}, fp=None
         )
 
+        # Use a path that passes validation but doesn't exist
+        result = GitHubFetcher.download_config(
+            self.username, self.repo, ".config/hypr/nonexistent.conf"
+        )
+
+        self.assertFalse(result["success"])
+        self.assertIn("not found", result["message"].lower())
+
+    def test_download_config_invalid_path_rejected(self):
+        """Test that paths not matching config patterns are rejected."""
         result = GitHubFetcher.download_config(
             self.username, self.repo, "nonexistent.conf"
         )
 
         self.assertFalse(result["success"])
-        self.assertIn("not found", result["message"].lower())
+        self.assertIn("doesn't match expected", result["message"].lower())
 
     @patch("urllib.request.urlopen")
     def test_import_to_config_success(self, mock_urlopen):
@@ -283,6 +295,182 @@ bindd = $mainMod, SPACE, App launcher, exec, walker
         self.assertFalse(GitHubFetcher.validate_username("user name"))
         self.assertFalse(GitHubFetcher.validate_username("user@name"))
         self.assertFalse(GitHubFetcher.validate_username("user/name"))
+
+
+class TestAsyncMethods(unittest.TestCase):
+    """Test async versions of GitHubFetcher methods."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.username = "testuser"
+        self.repo = "hyprland-config"
+        self.repos_response = [
+            {
+                "name": "hyprland-config",
+                "description": "My Hyprland configuration",
+                "stargazers_count": 100,
+                "html_url": "https://github.com/testuser/hyprland-config",
+            }
+        ]
+        self.tree_response = {
+            "tree": [
+                {"path": ".config/hypr/keybinds.conf", "type": "blob"},
+            ]
+        }
+
+    @patch("urllib.request.urlopen")
+    def test_fetch_profile_async_calls_callback(self, mock_urlopen):
+        """Test async profile fetch calls callback with result."""
+        # Setup mock
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(self.repos_response).encode()
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        # Track callback invocation
+        results = []
+        callback_event = threading.Event()
+
+        def callback(result):
+            results.append(result)
+            callback_event.set()
+
+        # Call async method (without GLib for testing)
+        thread = GitHubFetcher.fetch_profile_async(
+            self.username, callback, use_glib=False
+        )
+
+        # Wait for callback
+        callback_event.wait(timeout=5.0)
+        thread.join(timeout=1.0)
+
+        # Verify callback was called with correct result
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0]["success"])
+        self.assertEqual(len(results[0]["repos"]), 1)
+
+    @patch("urllib.request.urlopen")
+    def test_find_config_files_async_calls_callback(self, mock_urlopen):
+        """Test async config file search calls callback."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(self.tree_response).encode()
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        results = []
+        callback_event = threading.Event()
+
+        def callback(result):
+            results.append(result)
+            callback_event.set()
+
+        thread = GitHubFetcher.find_config_files_async(
+            self.username, self.repo, callback, use_glib=False
+        )
+
+        callback_event.wait(timeout=5.0)
+        thread.join(timeout=1.0)
+
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0]["success"])
+        self.assertIn(".config/hypr/keybinds.conf", results[0]["files"])
+
+    @patch("urllib.request.urlopen")
+    def test_download_config_async_calls_callback(self, mock_urlopen):
+        """Test async config download calls callback."""
+        import base64
+
+        content = "bindd = $mainMod, Q, Close, killactive"
+        file_response = {
+            "content": base64.b64encode(content.encode()).decode(),
+            "encoding": "base64",
+        }
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(file_response).encode()
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        results = []
+        callback_event = threading.Event()
+
+        def callback(result):
+            results.append(result)
+            callback_event.set()
+
+        thread = GitHubFetcher.download_config_async(
+            self.username,
+            self.repo,
+            ".config/hypr/keybinds.conf",
+            callback,
+            use_glib=False,
+        )
+
+        callback_event.wait(timeout=5.0)
+        thread.join(timeout=1.0)
+
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0]["success"])
+        self.assertEqual(results[0]["content"], content)
+
+    @patch("urllib.request.urlopen")
+    def test_async_handles_network_error(self, mock_urlopen):
+        """Test async method handles network errors gracefully."""
+        from urllib.error import URLError
+
+        mock_urlopen.side_effect = URLError("Connection refused")
+
+        results = []
+        callback_event = threading.Event()
+
+        def callback(result):
+            results.append(result)
+            callback_event.set()
+
+        thread = GitHubFetcher.fetch_profile_async(
+            self.username, callback, use_glib=False
+        )
+
+        callback_event.wait(timeout=5.0)
+        thread.join(timeout=1.0)
+
+        self.assertEqual(len(results), 1)
+        self.assertFalse(results[0]["success"])
+        self.assertIn("network", results[0]["message"].lower())
+
+    def test_async_returns_thread(self):
+        """Test async methods return thread objects."""
+        results = []
+
+        def callback(result):
+            results.append(result)
+
+        # Use invalid username to avoid network call
+        thread = GitHubFetcher.fetch_profile_async("", callback, use_glib=False)
+
+        self.assertIsInstance(thread, threading.Thread)
+        thread.join(timeout=1.0)
+
+    @patch("urllib.request.urlopen")
+    def test_async_thread_is_daemon(self, mock_urlopen):
+        """Test async threads are daemon threads (won't block app exit)."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(self.repos_response).encode()
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        callback_event = threading.Event()
+
+        def callback(result):
+            callback_event.set()
+
+        thread = GitHubFetcher.fetch_profile_async(
+            self.username, callback, use_glib=False
+        )
+
+        self.assertTrue(thread.daemon)
+        callback_event.wait(timeout=5.0)
+        thread.join(timeout=1.0)
 
 
 if __name__ == "__main__":

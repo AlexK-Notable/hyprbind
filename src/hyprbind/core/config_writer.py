@@ -7,22 +7,35 @@ import shutil
 import os
 
 from hyprbind.core.models import Config, Binding
+from hyprbind.core.logging_config import get_logger
+from hyprbind.core.validators import PathValidator
+
+logger = get_logger(__name__)
 
 
 class ConfigWriter:
     """Writes Config objects to Hyprland config files."""
 
     @staticmethod
-    def write_file(config: Config, output_path: Path) -> None:
+    def write_file(config: Config, output_path: Path, skip_validation: bool = False) -> None:
         """Write config to file atomically with backup.
 
         Args:
             config: Config object to write
             output_path: Path to output file
+            skip_validation: Skip path validation (for testing with tmp paths)
 
         Raises:
+            ValueError: If path fails security validation
             IOError: If write fails
         """
+        # Validate path before writing
+        if not skip_validation:
+            path_error = PathValidator.validate_write_path(output_path)
+            if path_error:
+                logger.warning("Write path validation failed: %s (%s)", output_path, path_error)
+                raise ValueError(path_error)
+
         # Create backup if file exists
         if output_path.exists():
             backup_path = output_path.with_suffix(output_path.suffix + '.backup')
@@ -50,8 +63,9 @@ class ConfigWriter:
             # Clean up temp file on error
             try:
                 os.unlink(temp_path)
-            except:
-                pass
+            except OSError as cleanup_error:
+                # Temp file cleanup is non-critical; log for debugging
+                logger.debug("Failed to cleanup temp file %s: %s", temp_path, cleanup_error)
             raise IOError(f"Failed to write config: {e}")
 
     @staticmethod

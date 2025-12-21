@@ -71,7 +71,7 @@ def test_write_config_with_submaps(sample_config):
         output_path = Path(f.name)
 
     try:
-        ConfigWriter.write_file(sample_config, output_path)
+        ConfigWriter.write_file(sample_config, output_path, skip_validation=True)
 
         content = output_path.read_text()
 
@@ -119,7 +119,7 @@ def test_write_creates_backup():
 
     try:
         config = Config(file_path=str(output_path), original_content="")
-        ConfigWriter.write_file(config, output_path)
+        ConfigWriter.write_file(config, output_path, skip_validation=True)
 
         backup_path = output_path.with_suffix(output_path.suffix + '.backup')
         assert backup_path.exists()
@@ -153,7 +153,7 @@ def test_atomic_write_on_failure():
 
         try:
             with pytest.raises(IOError) as exc_info:
-                ConfigWriter.write_file(config, output_path)
+                ConfigWriter.write_file(config, output_path, skip_validation=True)
 
             # Should mention the error
             assert "Failed to write config" in str(exc_info.value)

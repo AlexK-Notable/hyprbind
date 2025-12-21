@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from hyprbind.core.models import Binding
+from hyprbind.core.sanitizers import IPCSanitizer
+from hyprbind.core.logging_config import get_logger
+from hyprbind.core.constants import IPC_TIMEOUT_SECONDS
+
+logger = get_logger(__name__)
 
 
 class HyprlandNotRunningError(Exception):
@@ -116,7 +121,7 @@ class HyprlandClient:
         # Create a new socket for each command
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            sock.settimeout(5.0)  # 5 second timeout
+            sock.settimeout(IPC_TIMEOUT_SECONDS)
             sock.connect(str(self.socket_path))
             sock.sendall(command.encode())
 
@@ -150,14 +155,26 @@ class HyprlandClient:
             True if successful, False otherwise.
         """
         try:
+            # Validate binding for control characters before IPC
+            validation_error = IPCSanitizer.validate_binding(binding)
+            if validation_error:
+                logger.warning("Binding validation failed: %s", validation_error)
+                return False
+
+            # Sanitize all fields (defense in depth)
+            sanitized_mods = [IPCSanitizer.sanitize(mod) for mod in binding.modifiers]
+            sanitized_key = IPCSanitizer.sanitize(binding.key)
+            sanitized_action = IPCSanitizer.sanitize(binding.action)
+            sanitized_params = IPCSanitizer.sanitize(binding.params) if binding.params else ""
+
             # Build modifier string
-            mods = " ".join(binding.modifiers) if binding.modifiers else ""
+            mods = " ".join(sanitized_mods) if sanitized_mods else ""
 
             # Build command based on whether params exist
-            if binding.params:
-                command = f"keyword bind,{mods},{binding.key},{binding.action},{binding.params}"
+            if sanitized_params:
+                command = f"keyword bind,{mods},{sanitized_key},{sanitized_action},{sanitized_params}"
             else:
-                command = f"keyword bind,{mods},{binding.key},{binding.action}"
+                command = f"keyword bind,{mods},{sanitized_key},{sanitized_action}"
 
             # Send command
             self.send_command(command)
@@ -177,11 +194,15 @@ class HyprlandClient:
             True if successful, False otherwise.
         """
         try:
+            # Sanitize key and modifiers before IPC
+            sanitized_mods = [IPCSanitizer.sanitize(mod) for mod in binding.modifiers]
+            sanitized_key = IPCSanitizer.sanitize(binding.key)
+
             # Build modifier string
-            mods = " ".join(binding.modifiers) if binding.modifiers else ""
+            mods = " ".join(sanitized_mods) if sanitized_mods else ""
 
             # Build unbind command
-            command = f"keyword unbind,{mods},{binding.key}"
+            command = f"keyword unbind,{mods},{sanitized_key}"
 
             # Send command
             self.send_command(command)
